@@ -467,38 +467,41 @@ test "TestEvalBooleanExpression" {
     }
 }
 
-// test "TestBangOperator" {
-//     const Test = struct {
-//         []const u8,
-//         bool,
-//     };
-//     const tests = [_]Test{
-//         .{ "!true", false },
-//         .{ "!false", true },
-//         .{ "!5", false },
-//         .{ "!!true", true },
-//         .{ "!!false", false },
-//         .{ "!!5", true },
-//     };
-//
-//     for (tests) |t| {
-//         const lexer = Lexer.init(t[0]);
-//         var parser = try Parser.init(std.testing.allocator, lexer);
-//         defer parser.deinit();
-//         var program = try parser.parseProgram();
-//         defer program.deinit();
-//
-//         checkParserErrors(parser);
-//
-//         const obj = eval(program);
-//
-//         {
-//             const expected = t[1];
-//             const actual = if (obj) |v| v.boolean.value else unreachable;
-//             try std.testing.expectEqual(expected, actual);
-//         }
-//     }
-// }
+test "TestBangOperator" {
+    const Test = struct {
+        []const u8,
+        bool,
+    };
+    const tests = [_]Test{
+        .{ "!true", false },
+        .{ "!false", true },
+        .{ "!5", false },
+        .{ "!!true", true },
+        .{ "!!false", false },
+        .{ "!!5", true },
+    };
+
+    for (tests) |t| {
+        const lexer = Lexer.init(t[0]);
+        var parser = try Parser.init(std.testing.allocator, lexer);
+        defer parser.deinit();
+        var program = parser.parseProgram();
+        defer program.deinit();
+
+        checkParserErrors(parser);
+
+        EvalWorld.init(std.testing.allocator);
+        defer EvalWorld.deinit();
+
+        const obj = eval(program);
+
+        {
+            const expected = t[1];
+            const actual = obj.?.boolean.value;
+            try std.testing.expectEqual(expected, actual);
+        }
+    }
+}
 
 // pub const Types1 = union(enum) {
 //     integer: anyerror!*Object.Integer,
