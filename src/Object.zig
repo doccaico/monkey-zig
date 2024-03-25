@@ -1,5 +1,6 @@
+const Evaluator = @import("Evaluator.zig");
+
 const ObjectType = []const u8;
-// const INTEGER_OBJ: ObjectType = "INTEGER";
 
 pub const INTEGER_OBJ: ObjectType = "INTEGER";
 pub const BOOLEAN_OBJ: ObjectType = "BOOLEAN";
@@ -7,7 +8,7 @@ pub const NULL_OBJ: ObjectType = "NULL";
 pub const RETURN_VALUE_OBJ: ObjectType = "RETURN_VALUE";
 
 pub const Object = union(enum(u8)) {
-    integer: Integer,
+    integer: *Integer,
     boolean: *Boolean,
     null: *Null,
     return_value: *ReturnValue,
@@ -75,3 +76,30 @@ pub const ReturnValue = struct {
         return RETURN_VALUE_OBJ;
     }
 };
+
+// functions
+
+pub fn createObjectBoolean(value: bool) *Object {
+    const new_boolean_obj = Evaluator.eval_allocator.create(Boolean) catch @panic("OOM");
+    new_boolean_obj.value = value;
+
+    const new_obj = Evaluator.createObject();
+    new_obj.* = Object{ .boolean = new_boolean_obj };
+
+    return new_obj;
+}
+
+pub fn createObjectNull() *Object {
+    const new_null_obj = Evaluator.eval_allocator.create(Null) catch @panic("OOM");
+
+    const new_obj = Evaluator.createObject();
+    new_obj.* = Object{ .null = new_null_obj };
+
+    return new_obj;
+}
+
+pub fn createObjectInteger() *Integer {
+    const new_obj = Evaluator.eval_allocator.create(Integer) catch @panic("OOM");
+
+    return new_obj;
+}

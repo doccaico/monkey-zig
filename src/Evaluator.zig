@@ -13,6 +13,14 @@ const Ast = struct {
 
 const checkParserErrors = Parser.checkParserErrors;
 
+// var TRUE: *Object.Boolean = undefined;
+// var FALSE: *Object.Boolean = undefined;
+// var NULL: *Object.Null = undefined;
+
+var TRUE: *Object.Object = undefined;
+var FALSE: *Object.Object = undefined;
+var NULL: *Object.Object = undefined;
+
 pub var eval_allocator: std.mem.Allocator = undefined;
 pub var object_list: std.ArrayList(*Object.Object) = undefined;
 pub var node_list: std.ArrayList(*Ast.Node) = undefined;
@@ -22,11 +30,21 @@ pub const EvalWorld = struct {
         eval_allocator = allocator;
         object_list = std.ArrayList(*Object.Object).init(allocator);
         node_list = std.ArrayList(*Ast.Node).init(allocator);
+
+        TRUE = Object.createObjectBoolean(true);
+        FALSE = Object.createObjectBoolean(false);
+        NULL = Object.createObjectNull();
     }
 
     pub fn deinit() void {
         // object_list
         for (object_list.items) |item| {
+            switch (item.*) {
+                .integer => |v| eval_allocator.destroy(v),
+                .boolean => |v| eval_allocator.destroy(v),
+                .null => |v| eval_allocator.destroy(v),
+                else => {},
+            }
             eval_allocator.destroy(item);
         }
         object_list.deinit();
@@ -39,13 +57,13 @@ pub const EvalWorld = struct {
     }
 };
 
-pub fn create_node() *Ast.Node {
+pub fn createNode() *Ast.Node {
     const node = eval_allocator.create(Ast.Node) catch @panic("OOM");
     node_list.append(node) catch @panic("OOM");
     return node;
 }
 
-pub fn create_object() *Object.Object {
+pub fn createObject() *Object.Object {
     const obj = eval_allocator.create(Object.Object) catch @panic("OOM");
     object_list.append(obj) catch @panic("OOM");
     return obj;
@@ -59,18 +77,18 @@ pub fn eval(node: *Ast.Node) ?*Object.Object {
         .statement => |v| {
             switch (v.*) {
                 .return_statement => |self| {
-                    const new_node = create_node();
+                    const new_node = createNode();
                     new_node.* = Ast.Node{ .expression = self.return_value };
 
                     const n = eval(new_node).?;
 
-                    const new_obj = create_object();
+                    const new_obj = createObject();
                     new_obj.return_value.value = n.return_value.value;
 
                     return new_obj;
                 },
                 .expression_statement => |self| {
-                    const new_node = create_node();
+                    const new_node = createNode();
                     new_node.* = Ast.Node{ .expression = self.expression };
 
                     return eval(new_node);
@@ -81,10 +99,21 @@ pub fn eval(node: *Ast.Node) ?*Object.Object {
         .expression => |v| {
             switch (v.*) {
                 .integer_literal => |self| {
-                    const new_obj = create_object();
-                    new_obj.* = Object.Object{ .integer = .{ .value = self.value } };
+                    const new_integer_obj = Object.createObjectInteger();
+                    new_integer_obj.value = self.value;
+
+                    const new_obj = createObject();
+                    new_obj.* = Object.Object{ .integer = new_integer_obj };
 
                     return new_obj;
+                },
+                .prefix_expression => |self| {
+                    const new_right_node = createNode();
+                    new_right_node.* = Ast.Node{ .expression = self.right };
+
+                    const right = eval(new_right_node).?;
+
+                    return evalPrefixExpression(self.operator, right);
                 },
                 else => unreachable,
             }
@@ -100,7 +129,7 @@ fn evalProgram(program: *Ast.Program) ?*Object.Object {
     var result: ?*Object.Object = null;
 
     for (program.statements.items) |stmt| {
-        const new_node = create_node();
+        const new_node = createNode();
         new_node.* = Ast.Node{ .statement = stmt };
 
         result = eval(new_node);
@@ -171,30 +200,56 @@ fn evalBoolean(be: Ast.BooleanExpression) Object.Object {
     return Object.Object{ .boolean = Object.Boolean{ .value = be.value } };
 }
 
-fn evalPrefixExpression(token_type: TokenType, right: Object.Object) Object.Object {
-    return switch (token_type) {
-        .bang => evalPrefixBangExpression(right),
-        .minus => evalPrefixMinusExpression(right),
-        else => Object.Object{ .null = Object.Null{} },
-    };
+fn evalPrefixExpression(operator: []const u8, right: *Object.Object) *Object.Object {
+    if (std.mem.eql(u8, operator, "!")) {
+        return evalPrefixBangExpression(right);
+    } else if (std.mem.eql(u8, operator, "-")) {
+        return evalPrefixMinusExpression(right);
+    } else {
+        return NULL;
+    }
+
+    // return switch (token_type) {
+    //     .bang => evalPrefixBangExpression(right),
+    //     .minus => evalPrefixMinusExpression(right),
+    //     else => Object.Object{ .null = Object.Null{} },
+    // };
 }
 
-fn evalPrefixBangExpression(right: Object.Object) Object.Object {
-    return switch (right) {
-        .boolean => |obj| Object.Object{ .boolean = Object.Boolean{ .value = !obj.value } },
-        .null => Object.Object{ .boolean = Object.Boolean{ .value = true } },
-        else => Object.Object{ .boolean = Object.Boolean{ .value = false } },
-    };
+fn evalPrefixBangExpression(right: *Object.Object) *Object.Object {
+    if (right == TRUE) return FALSE;
+    if (right == FALSE) return TRUE;
+    if (right == NULL) return TRUE;
+    return FALSE;
+
+    // return switch (right) {
+    //     .boolean => |obj| Object.Object{ .boolean = Object.Boolean{ .value = !obj.value } },
+    //     .null => Object.Object{ .boolean = Object.Boolean{ .value = true } },
+    //     else => Object.Object{ .boolean = Object.Boolean{ .value = false } },
+    // };
 }
 
-fn evalPrefixMinusExpression(right: Object.Object) Object.Object {
-    return switch (right) {
-        .integer => |obj| Object.Object{ .integer = Object.Integer{ .value = -obj.value } },
-        else => Object.Object{ .null = Object.Null{} },
-    };
+fn evalPrefixMinusExpression(right: *Object.Object) *Object.Object {
+    switch (right.*) {
+        .integer => |obj| {
+            // Object.Object{ .integer = Object.Integer{ .value = -obj.value } };
+            // new_obj.return_value.value = n.return_value.value;
+
+            const new_integer_obj = Object.createObjectInteger();
+            new_integer_obj.value = -obj.value;
+
+            const new_obj = createObject();
+            new_obj.* = Object.Object{ .integer = new_integer_obj };
+
+            return new_obj;
+        },
+        else => {
+            return NULL;
+        },
+    }
 }
 
-fn evalInfixExpression(op: []const u8, left: Object.Object, right: Object.Object) Object.Object {
+fn evalInfixExpression(op: []const u8, left: *Object.Object, right: *Object.Object) *Object.Object {
     // const left_is_integer = std.mem.eql(u8, left.getType(), Object.INTEGER_OBJ);
     // const right_is_integer = std.mem.eql(u8, right.getType(), Object.INTEGER_OBJ);
     if (std.mem.eql(u8, left.getType(), Object.INTEGER_OBJ) and

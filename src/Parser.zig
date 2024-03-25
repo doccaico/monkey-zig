@@ -274,7 +274,7 @@ fn parseIdentifier(self: *Parser) *Ast.Expression {
 fn parseIntegerLiteral(self: *Parser) *Ast.Expression {
     const ilit = self.allocator.create(Ast.IntegerLiteral) catch @panic("OOM");
     ilit.token = self.cur_token;
-    ilit.allocator = self.allocator;
+    // ilit.allocator = self.allocator;
     ilit.value = std.fmt.parseInt(i64, self.cur_token.literal, 10) catch {
         return self.conversionError(self.cur_token.literal);
     };
@@ -301,13 +301,20 @@ fn parsePrefixExpression(self: *Parser) *Ast.Expression {
     pe.right = ptr;
 
     const e = self.allocator.create(Ast.Expression) catch @panic("OOM");
-    e.prefix_expression = pe;
+    e.* = .{ .prefix_expression = pe };
     return e;
 
+    // e.prefix_expression = pe;
     // return pe;
     //     Ast.Expression{
     //     .prefix_expression = pe,
     // };
+
+    // const e = self.allocator.create(Ast.Expression) catch @panic("OOM");
+    // // e.integer_literal = ilit;
+    // e.* = .{ .integer_literal = ilit };
+    // return e;
+
 }
 
 fn parseInfixExpression(self: *Parser, left: *Ast.Expression) *Ast.Expression {
