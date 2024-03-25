@@ -269,17 +269,9 @@ fn evalInfixExpression(op: []const u8, left: *Object.Object, right: *Object.Obje
     {
         return evalIntegerInfixExpression(op, left.integer.value, right.integer.value);
     } else if (std.mem.eql(u8, op, "==")) {
-        if (left.boolean.value == right.boolean.value) {
-            return TRUE;
-        } else {
-            return FALSE;
-        }
+        return nativeBoolToBooleanObject(left.boolean.value == right.boolean.value);
     } else if (std.mem.eql(u8, op, "!=")) {
-        if (left.boolean.value != right.boolean.value) {
-            return TRUE;
-        } else {
-            return FALSE;
-        }
+        return nativeBoolToBooleanObject(left.boolean.value != right.boolean.value);
     } else {
         return NULL;
     }
