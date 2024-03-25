@@ -111,6 +111,20 @@ pub fn eval(node: *Ast.Node) ?*Object.Object {
 
                     return evalPrefixExpression(self.operator, right);
                 },
+                .infix_expression => |self| {
+                    // left
+                    const new_left_node = createNode();
+                    new_left_node.* = Ast.Node{ .expression = self.left };
+
+                    const left = eval(new_left_node).?;
+                    // rigth
+                    const new_right_node = createNode();
+                    new_right_node.* = Ast.Node{ .expression = self.right };
+
+                    const right = eval(new_right_node).?;
+
+                    return evalInfixExpression(self.operator, left, right);
+                },
                 else => unreachable,
             }
         },
@@ -254,36 +268,74 @@ fn evalInfixExpression(op: []const u8, left: *Object.Object, right: *Object.Obje
     {
         return evalIntegerInfixExpression(op, left.integer.value, right.integer.value);
     } else if (std.mem.eql(u8, op, "==")) {
-        return Object.Object{ .boolean = Object.Boolean{ .value = left.boolean.value == right.boolean.value } };
+        const new_obj = createObject();
+        new_obj.boolean.value = left.boolean.value == right.boolean.value;
+        return new_obj;
+        // return Object.Object{ .boolean = Object.Boolean{ .value = left.boolean.value == right.boolean.value } };
     } else if (std.mem.eql(u8, op, "!=")) {
-        return Object.Object{ .boolean = Object.Boolean{ .value = left.boolean.value != right.boolean.value } };
+        const new_obj = createObject();
+        new_obj.boolean.value = left.boolean.value != right.boolean.value;
+        return new_obj;
+        // return Object.Object{ .boolean = Object.Boolean{ .value = left.boolean.value != right.boolean.value } };
     } else {
-        return Object.Object{ .null = Object.Null{} };
+        return NULL;
     }
 }
 
-// fn evalIntegerInfixExpression(op: []const u8, left: Object.Object, right: Object.Object) Object.Object {
-fn evalIntegerInfixExpression(op: []const u8, left_val: i64, right_val: i64) Object.Object {
-    // const left_val = left.integer.value;
-    // const right_val = right.integer.value;
-    return switch (op[0]) {
-        '+' => Object.Object{ .integer = Object.Integer{ .value = left_val + right_val } },
-        '-' => Object.Object{ .integer = Object.Integer{ .value = left_val - right_val } },
-        '*' => Object.Object{ .integer = Object.Integer{ .value = left_val * right_val } },
-        '/' => Object.Object{ .integer = Object.Integer{ .value = @divTrunc(left_val, right_val) } },
-        '<' => Object.Object{ .boolean = Object.Boolean{ .value = left_val < right_val } },
-        '>' => Object.Object{ .boolean = Object.Boolean{ .value = left_val > right_val } },
-        else => blk: {
-            if (std.mem.eql(u8, op, "==")) {
-                break :blk Object.Object{ .boolean = Object.Boolean{ .value = left_val == right_val } };
-            }
+fn evalIntegerInfixExpression(op: []const u8, left_val: i64, right_val: i64) *Object.Object {
+    switch (op[0]) {
+        '+' => {
+            const new_integer_obj = Object.createObjectInteger();
+            new_integer_obj.value = left_val + right_val;
 
-            if (std.mem.eql(u8, op, "!=")) {
-                break :blk Object.Object{ .boolean = Object.Boolean{ .value = left_val != right_val } };
-            }
-            break :blk Object.Object{ .null = Object.Null{} };
+            const new_obj = createObject();
+            new_obj.* = Object.Object{ .integer = new_integer_obj };
+
+            return new_obj;
         },
-    };
+        '-' => {
+            const new_integer_obj = Object.createObjectInteger();
+            new_integer_obj.value = left_val - right_val;
+
+            const new_obj = createObject();
+            new_obj.* = Object.Object{ .integer = new_integer_obj };
+
+            return new_obj;
+        },
+        '*' => {
+            const new_integer_obj = Object.createObjectInteger();
+            new_integer_obj.value = left_val * right_val;
+
+            const new_obj = createObject();
+            new_obj.* = Object.Object{ .integer = new_integer_obj };
+
+            return new_obj;
+        },
+        '/' => {
+            const new_integer_obj = Object.createObjectInteger();
+            new_integer_obj.value = @divTrunc(left_val, right_val);
+
+            const new_obj = createObject();
+            new_obj.* = Object.Object{ .integer = new_integer_obj };
+
+            return new_obj;
+        },
+        '<' => {
+            return nativeBoolToBooleanObject(left_val < right_val);
+        },
+        '>' => {
+            return nativeBoolToBooleanObject(left_val > right_val);
+        },
+        else => {
+            if (std.mem.eql(u8, op, "==")) {
+                return nativeBoolToBooleanObject(left_val == right_val);
+            }
+            if (std.mem.eql(u8, op, "!=")) {
+                return nativeBoolToBooleanObject(left_val != right_val);
+            }
+            return NULL;
+        },
+    }
 }
 
 fn evalIfExpression(ie: Ast.IfExpression) Object.Object {
@@ -312,6 +364,14 @@ fn isTruthy(obj: Object.Object) bool {
     };
 }
 
+fn nativeBoolToBooleanObject(input: bool) *Object.Object {
+    if (input) {
+        return TRUE;
+    } else {
+        return FALSE;
+    }
+}
+
 // Test Utils
 
 test "TestEvalIntegerExpression" {
@@ -326,17 +386,17 @@ test "TestEvalIntegerExpression" {
         .{ "-5", -5 },
         .{ "-10", -10 },
 
-        // .{ "5 + 5 + 5 + 5 - 10", 10 },
-        // .{ "2 * 2 * 2 * 2 * 2", 32 },
-        // .{ "-50 + 100 + -50", 0 },
-        // .{ "5 * 2 + 10", 20 },
-        // .{ "5 + 2 * 10", 25 },
-        // .{ "20 + 2 * -10", 0 },
-        // .{ "50 / 2 * 2 + 10", 60 },
-        // .{ "2 * (5 + 10)", 30 },
-        // .{ "3 * 3 * 3 + 10", 37 },
-        // .{ "3 * (3 * 3) + 10", 37 },
-        // .{ "(5 + 10 * 2 + 15 / 3) * 2 + -10", 50 },
+        .{ "5 + 5 + 5 + 5 - 10", 10 },
+        .{ "2 * 2 * 2 * 2 * 2", 32 },
+        .{ "-50 + 100 + -50", 0 },
+        .{ "5 * 2 + 10", 20 },
+        .{ "5 + 2 * 10", 25 },
+        .{ "20 + 2 * -10", 0 },
+        .{ "50 / 2 * 2 + 10", 60 },
+        .{ "2 * (5 + 10)", 30 },
+        .{ "3 * 3 * 3 + 10", 37 },
+        .{ "3 * (3 * 3) + 10", 37 },
+        .{ "(5 + 10 * 2 + 15 / 3) * 2 + -10", 50 },
     };
 
     for (tests) |t| {
@@ -355,12 +415,12 @@ test "TestEvalIntegerExpression" {
 
         {
             const expected = t[1];
-            const actual = if (obj) |o| o.integer.value else unreachable;
+            const actual = obj.?.integer.value;
             try std.testing.expectEqual(expected, actual);
         }
     }
 }
-//
+
 // test "TestEvalBooleanExpression" {
 //     const Test = struct {
 //         []const u8,

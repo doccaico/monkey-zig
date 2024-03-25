@@ -246,10 +246,13 @@ fn parseExpression(self: *Parser, precedence: OperatorPrecedence) *Ast.Expressio
 
         self.nextToken();
 
-        var ptr = self.allocator.create(Ast.Expression) catch @panic("OOM");
-        ptr = leftExpr;
+        // var ptr = self.allocator.create(Ast.Expression) catch @panic("OOM");
+        // ptr = leftExpr;
 
-        leftExpr = infixFn(self, ptr);
+        // var ptr = self.allocator.create(Ast.Expression) catch @panic("OOM");
+        // ptr = leftExpr;
+
+        leftExpr = infixFn(self, leftExpr);
     }
 
     return leftExpr;
@@ -325,13 +328,10 @@ fn parseInfixExpression(self: *Parser, left: *Ast.Expression) *Ast.Expression {
 
     self.nextToken();
 
-    var ptr = self.allocator.create(Ast.Expression) catch @panic("OOM");
-    ptr = self.parseExpression(precedence);
-
-    ie.right = ptr;
+    ie.right = self.parseExpression(precedence);
 
     const e = self.allocator.create(Ast.Expression) catch @panic("OOM");
-    e.infix_expression = ie;
+    e.* = .{ .infix_expression = ie };
     return e;
 }
 

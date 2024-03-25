@@ -32,46 +32,23 @@ pub const Node = union(enum) {
             self.program.allocator.destroy(stmt);
         }
         self.program.statements.deinit();
-        const alloc = self.program.allocator;
-        alloc.destroy(self.program);
-        alloc.destroy(self);
-
-        // self.program.allocator.destroy(self.program);
-        // self.program.allocator.destroy(self);
-        // self.program.allocator.destroy(self);
-        // self.deinit();
+        const allocator = self.program.allocator;
+        allocator.destroy(self.program);
+        allocator.destroy(self);
     }
 
     fn freeExpressionPointer(allocator: std.mem.Allocator, expr: *Ast.Expression) void {
         switch (expr.*) {
             .prefix_expression => |prefixExpr| {
-                // freeExpressionPointer(allocator, prefixExpr);
-                // allocator.destroy(prefixExpr);
-                // std.debug.print(">>>>>>>>   {*}\n", .{prefixExpr.right});
-                // std.debug.print(">>>>>>>>   {*}\n", .{prefixExpr});
-                // std.debug.print(">>>>>>>>   {*}\n", .{expr});
-
-                // switch (prefixExpr.right.*) {
-                //     .integer_literal => |v| freeExpressionPointer(allocator, v),
-                //     else => {},
-                // }
                 freeExpressionPointer(allocator, prefixExpr.right);
                 allocator.destroy(prefixExpr);
                 allocator.destroy(expr);
-                // freeExpressionPointer(allocator, prefixExpr);
-                // freeExpressionPointer(allocator, expr);
-                // allocator.destroy(prefixExpr.right);
-                // allocator.destroy(prefixExpr);
-                // freeExpressionPointer(allocator, expr);
-                // std.debug.print(">>>>>>>>   {}\n", .{expr});
             },
             .infix_expression => |infixExpr| {
                 freeExpressionPointer(allocator, infixExpr.left);
-                // allocator.destroy(infixExpr.left);
-
                 freeExpressionPointer(allocator, infixExpr.right);
-                // allocator.destroy(infixExpr.right);
                 allocator.destroy(infixExpr);
+                allocator.destroy(expr);
             },
             .if_expression => |ifExpr| {
                 freeExpressionPointer(allocator, ifExpr.condition);
