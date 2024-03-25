@@ -8,10 +8,10 @@ const Ast = struct {
 
 pub const Statement = union(enum(u8)) {
     @"error": ParserError,
-    let_statement: LetStatement,
-    return_statement: ReturnStatement,
-    expression_statement: ExpressionStatement,
-    block_statement: BlockStatement,
+    let_statement: *LetStatement,
+    return_statement: *ReturnStatement,
+    expression_statement: *ExpressionStatement,
+    block_statement: *BlockStatement,
 
     pub fn tokenLiteral(self: Statement) []const u8 {
         return switch (self) {
@@ -30,8 +30,8 @@ pub const Statement = union(enum(u8)) {
 
 pub const LetStatement = struct {
     token: Token,
-    name: Ast.Identifier,
-    value: Ast.Expression,
+    name: *Ast.Identifier,
+    value: *Ast.Expression,
 
     pub fn tokenLiteral(self: LetStatement) []const u8 {
         return self.token.literal;
@@ -48,7 +48,8 @@ pub const LetStatement = struct {
 
 pub const ReturnStatement = struct {
     token: Token,
-    value: Ast.Expression,
+    allocator: std.mem.Allocator,
+    return_value: *Ast.Expression,
 
     pub fn tokenLiteral(self: ReturnStatement) []const u8 {
         return self.token.literal;
@@ -63,7 +64,8 @@ pub const ReturnStatement = struct {
 
 pub const ExpressionStatement = struct {
     token: Token,
-    expression: Ast.Expression,
+    allocator: std.mem.Allocator,
+    expression: *Ast.Expression,
 
     pub fn tokenLiteral(self: ExpressionStatement) []const u8 {
         return self.token.literal;
@@ -76,10 +78,13 @@ pub const ExpressionStatement = struct {
 
 pub const BlockStatement = struct {
     token: Token,
-    statements: std.ArrayList(Statement),
+    statements: std.ArrayList(*Statement),
 
-    pub fn init(allocator: std.mem.Allocator, token: Token) BlockStatement {
-        return BlockStatement{ .token = token, .statements = std.ArrayList(Statement).init(allocator) };
+    pub fn init(allocator: std.mem.Allocator, token: Token) *BlockStatement {
+        const bs = allocator.create(BlockStatement) catch @panic("OOM");
+        bs.token = token;
+        bs.statements = std.ArrayList(*Statement).init(allocator);
+        return bs;
     }
 
     pub fn deinit(self: BlockStatement) void {

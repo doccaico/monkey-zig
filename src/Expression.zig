@@ -8,14 +8,14 @@ const Ast = struct {
 
 pub const Expression = union(enum(u8)) {
     @"error": ParserError,
-    identifier: Identifier,
-    integer_literal: IntegerLiteral,
-    prefix_expression: PrefixExpression,
-    infix_expression: InfixExpression,
-    boolean: BooleanExpression,
-    if_expression: IfExpression,
-    function_literal: FunctionLiteral,
-    call_expression: CallExpression,
+    identifier: *Identifier,
+    integer_literal: *IntegerLiteral,
+    prefix_expression: *PrefixExpression,
+    infix_expression: *InfixExpression,
+    boolean: *BooleanExpression,
+    if_expression: *IfExpression,
+    function_literal: *FunctionLiteral,
+    call_expression: *CallExpression,
 
     pub fn tokenLiteral(self: Expression) []const u8 {
         return switch (self) {
@@ -47,6 +47,7 @@ pub const Identifier = struct {
 
 pub const IntegerLiteral = struct {
     token: Token,
+    allocator: std.mem.Allocator,
     value: i64,
 
     pub fn tokenLiteral(self: IntegerLiteral) []const u8 {
@@ -110,8 +111,8 @@ pub const BooleanExpression = struct {
 pub const IfExpression = struct {
     token: Token,
     condition: *Expression,
-    consequence: Ast.BlockStatement,
-    alternative: ?Ast.BlockStatement,
+    consequence: *Ast.BlockStatement,
+    alternative: ?*Ast.BlockStatement,
 
     pub fn tokenLiteral(self: IfExpression) []const u8 {
         return self.token.literal;
@@ -133,14 +134,14 @@ pub const IfExpression = struct {
 pub const FunctionLiteral = struct {
     token: Token,
     parameters: std.ArrayList(Identifier),
-    body: Ast.BlockStatement,
+    body: *Ast.BlockStatement,
 
-    pub fn init(allocator: std.mem.Allocator, token: Token) FunctionLiteral {
-        return FunctionLiteral{
-            .token = token,
-            .parameters = std.ArrayList(Identifier).init(allocator),
-            .body = undefined,
-        };
+    pub fn init(allocator: std.mem.Allocator, token: Token) *FunctionLiteral {
+        const f = allocator.create(FunctionLiteral) catch @panic("OOM");
+        f.token = token;
+        f.parameters = std.ArrayList(Identifier).init(allocator);
+        f.body = undefined;
+        return f;
     }
 
     pub fn deinit(self: FunctionLiteral) void {
@@ -170,14 +171,14 @@ pub const FunctionLiteral = struct {
 pub const CallExpression = struct {
     token: Token,
     function: *Expression,
-    arguments: std.ArrayList(Expression),
+    arguments: std.ArrayList(*Expression),
 
-    pub fn init(allocator: std.mem.Allocator, token: Token, function: *Expression) CallExpression {
-        return CallExpression{
-            .token = token,
-            .function = function,
-            .arguments = std.ArrayList(Expression).init(allocator),
-        };
+    pub fn init(allocator: std.mem.Allocator, token: Token, function: *Expression) *CallExpression {
+        const ce = allocator.create(CallExpression) catch @panic("OOM");
+        ce.token = token;
+        ce.function = function;
+        ce.arguments = std.ArrayList(*Expression).init(allocator);
+        return ce;
     }
 
     pub fn deinit(self: CallExpression) void {

@@ -4,12 +4,13 @@ const ObjectType = []const u8;
 pub const INTEGER_OBJ: ObjectType = "INTEGER";
 pub const BOOLEAN_OBJ: ObjectType = "BOOLEAN";
 pub const NULL_OBJ: ObjectType = "NULL";
-pub const RETURN_VALUE__OBJ: ObjectType = "RETURN_VALUE";
+pub const RETURN_VALUE_OBJ: ObjectType = "RETURN_VALUE";
 
 pub const Object = union(enum(u8)) {
     integer: Integer,
-    boolean: Boolean,
-    null: Null,
+    boolean: *Boolean,
+    null: *Null,
+    return_value: *ReturnValue,
 
     pub fn inspect(self: Object, writer: anytype) anyerror!void {
         return switch (self) {
@@ -63,7 +64,7 @@ pub const Null = struct {
 };
 
 pub const ReturnValue = struct {
-    value: Object,
+    value: *Object,
 
     pub fn inspect(self: ReturnValue, writer: anytype) anyerror!void {
         _ = try writer.write(self.value.inspect(writer));
@@ -71,6 +72,6 @@ pub const ReturnValue = struct {
 
     pub fn getType(self: ReturnValue) ObjectType {
         _ = self;
-        return RETURN_VALUE__OBJ;
+        return RETURN_VALUE_OBJ;
     }
 };
