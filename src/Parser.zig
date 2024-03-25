@@ -76,11 +76,6 @@ pub fn init(allocator: std.mem.Allocator, lexer: Lexer) anyerror!Parser {
 }
 
 pub fn deinit(self: *Parser) void {
-    // for (self.errors.items) |err| {
-    //     self.allocator.free(err);
-    // }
-    // _ = self;
-
     self.errors.deinit();
     self.prefix_parse_fns.deinit();
     self.infix_parse_fns.deinit();
@@ -341,8 +336,7 @@ fn parseBooleanExpression(self: *Parser) *Ast.Expression {
     b.value = self.curTokenIs(.true);
 
     const e = self.allocator.create(Ast.Expression) catch @panic("OOM");
-    e.boolean = b;
-
+    e.* = .{ .boolean = b };
     return e;
     // return Ast.Expression{
     //     .boolean = Ast.BooleanExpression{

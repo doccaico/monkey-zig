@@ -125,6 +125,9 @@ pub fn eval(node: *Ast.Node) ?*Object.Object {
 
                     return evalInfixExpression(self.operator, left, right);
                 },
+                .boolean => |self| {
+                    return nativeBoolToBooleanObject(self.value);
+                },
                 else => unreachable,
             }
         },
@@ -140,7 +143,7 @@ fn evalProgram(program: *Ast.Program) ?*Object.Object {
 
     for (program.statements.items) |stmt| {
         const new_node = createNode();
-        new_node.* = Ast.Node{ .statement = stmt };
+        new_node.* = .{ .statement = stmt };
 
         result = eval(new_node);
 
@@ -261,22 +264,22 @@ fn evalPrefixMinusExpression(right: *Object.Object) *Object.Object {
 }
 
 fn evalInfixExpression(op: []const u8, left: *Object.Object, right: *Object.Object) *Object.Object {
-    // const left_is_integer = std.mem.eql(u8, left.getType(), Object.INTEGER_OBJ);
-    // const right_is_integer = std.mem.eql(u8, right.getType(), Object.INTEGER_OBJ);
     if (std.mem.eql(u8, left.getType(), Object.INTEGER_OBJ) and
         std.mem.eql(u8, right.getType(), Object.INTEGER_OBJ))
     {
         return evalIntegerInfixExpression(op, left.integer.value, right.integer.value);
     } else if (std.mem.eql(u8, op, "==")) {
-        const new_obj = createObject();
-        new_obj.boolean.value = left.boolean.value == right.boolean.value;
-        return new_obj;
-        // return Object.Object{ .boolean = Object.Boolean{ .value = left.boolean.value == right.boolean.value } };
+        if (left.boolean.value == right.boolean.value) {
+            return TRUE;
+        } else {
+            return FALSE;
+        }
     } else if (std.mem.eql(u8, op, "!=")) {
-        const new_obj = createObject();
-        new_obj.boolean.value = left.boolean.value != right.boolean.value;
-        return new_obj;
-        // return Object.Object{ .boolean = Object.Boolean{ .value = left.boolean.value != right.boolean.value } };
+        if (left.boolean.value != right.boolean.value) {
+            return TRUE;
+        } else {
+            return FALSE;
+        }
     } else {
         return NULL;
     }
@@ -421,54 +424,57 @@ test "TestEvalIntegerExpression" {
     }
 }
 
-// test "TestEvalBooleanExpression" {
-//     const Test = struct {
-//         []const u8,
-//         bool,
-//     };
-//     const tests = [_]Test{
-//         .{ "true", true },
-//         .{ "false;", false },
-//
-//         .{ "1 < 2", true },
-//         .{ "1 > 2", false },
-//         .{ "1 < 1", false },
-//         .{ "1 > 1", false },
-//         .{ "1 == 1", true },
-//         .{ "1 != 1", false },
-//         .{ "1 == 2", false },
-//         .{ "1 != 2", true },
-//
-//         .{ "true == true", true },
-//         .{ "false == false", true },
-//         .{ "true == false", false },
-//         .{ "true != false", true },
-//         .{ "false != true", true },
-//         .{ "(1 < 2) == true", true },
-//         .{ "(1 < 2) == false", false },
-//         .{ "(1 > 2) == true", false },
-//         .{ "(1 > 2) == false", true },
-//     };
-//
-//     for (tests) |t| {
-//         const lexer = Lexer.init(t[0]);
-//         var parser = try Parser.init(std.testing.allocator, lexer);
-//         defer parser.deinit();
-//         var program = try parser.parseProgram();
-//         defer program.deinit();
-//
-//         checkParserErrors(parser);
-//
-//         const obj = eval(program);
-//
-//         {
-//             const expected = t[1];
-//             const actual = if (obj) |v| v.boolean.value else unreachable;
-//             try std.testing.expectEqual(expected, actual);
-//         }
-//     }
-// }
-//
+test "TestEvalBooleanExpression" {
+    const Test = struct {
+        []const u8,
+        bool,
+    };
+    const tests = [_]Test{
+        .{ "true", true },
+        .{ "false;", false },
+
+        .{ "1 < 2", true },
+        .{ "1 > 2", false },
+        .{ "1 < 1", false },
+        .{ "1 > 1", false },
+        .{ "1 == 1", true },
+        .{ "1 != 1", false },
+        .{ "1 == 2", false },
+        .{ "1 != 2", true },
+
+        .{ "true == true", true },
+        .{ "false == false", true },
+        .{ "true == false", false },
+        .{ "true != false", true },
+        .{ "false != true", true },
+        .{ "(1 < 2) == true", true },
+        .{ "(1 < 2) == false", false },
+        .{ "(1 > 2) == true", false },
+        .{ "(1 > 2) == false", true },
+    };
+
+    for (tests) |t| {
+        const lexer = Lexer.init(t[0]);
+        var parser = try Parser.init(std.testing.allocator, lexer);
+        defer parser.deinit();
+        var program = parser.parseProgram();
+        defer program.deinit();
+
+        checkParserErrors(parser);
+
+        EvalWorld.init(std.testing.allocator);
+        defer EvalWorld.deinit();
+
+        const obj = eval(program);
+
+        {
+            const expected = t[1];
+            const actual = obj.?.boolean.value;
+            try std.testing.expectEqual(expected, actual);
+        }
+    }
+}
+
 // test "TestBangOperator" {
 //     const Test = struct {
 //         []const u8,

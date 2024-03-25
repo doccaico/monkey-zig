@@ -84,6 +84,10 @@ pub const Node = union(enum) {
                 allocator.destroy(intExpr);
                 allocator.destroy(expr);
             },
+            .boolean => |booleanExpr| {
+                allocator.destroy(booleanExpr);
+                allocator.destroy(expr);
+            },
             // .expression_statement => |_| {
             // std.debug.print(">>   {}\n", .{intExpr});
             // },
