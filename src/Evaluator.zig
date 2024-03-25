@@ -13,10 +13,6 @@ const Ast = struct {
 
 const checkParserErrors = Parser.checkParserErrors;
 
-// var TRUE: *Object.Boolean = undefined;
-// var FALSE: *Object.Boolean = undefined;
-// var NULL: *Object.Null = undefined;
-
 var TRUE: *Object.Object = undefined;
 var FALSE: *Object.Object = undefined;
 var NULL: *Object.Object = undefined;
@@ -180,6 +176,7 @@ fn evalExpressionStatement(expr: *Ast.Expression) ?*Object.Object {
         .boolean => |e| evalBoolean(e),
         .prefix_expression => |e| {
             const right = evalExpressionStatement(e.right.*);
+
             return evalPrefixExpression(e.token.type, right);
         },
         .infix_expression => |e| {
@@ -326,8 +323,8 @@ test "TestEvalIntegerExpression" {
         .{ "5", 5 },
         .{ "10;", 10 },
 
-        // .{ "-5", -5 },
-        // .{ "-10", -10 },
+        .{ "-5", -5 },
+        .{ "-10", -10 },
 
         // .{ "5 + 5 + 5 + 5 - 10", 10 },
         // .{ "2 * 2 * 2 * 2 * 2", 32 },

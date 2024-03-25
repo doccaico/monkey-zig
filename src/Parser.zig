@@ -295,10 +295,7 @@ fn parsePrefixExpression(self: *Parser) *Ast.Expression {
 
     self.nextToken();
 
-    var ptr = self.allocator.create(Ast.Expression) catch @panic("OOM");
-    ptr = self.parseExpression(.prefix);
-
-    pe.right = ptr;
+    pe.right = self.parseExpression(.prefix);
 
     const e = self.allocator.create(Ast.Expression) catch @panic("OOM");
     e.* = .{ .prefix_expression = pe };

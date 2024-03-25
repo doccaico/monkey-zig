@@ -45,8 +45,25 @@ pub const Node = union(enum) {
     fn freeExpressionPointer(allocator: std.mem.Allocator, expr: *Ast.Expression) void {
         switch (expr.*) {
             .prefix_expression => |prefixExpr| {
+                // freeExpressionPointer(allocator, prefixExpr);
+                // allocator.destroy(prefixExpr);
+                // std.debug.print(">>>>>>>>   {*}\n", .{prefixExpr.right});
+                // std.debug.print(">>>>>>>>   {*}\n", .{prefixExpr});
+                // std.debug.print(">>>>>>>>   {*}\n", .{expr});
+
+                // switch (prefixExpr.right.*) {
+                //     .integer_literal => |v| freeExpressionPointer(allocator, v),
+                //     else => {},
+                // }
                 freeExpressionPointer(allocator, prefixExpr.right);
                 allocator.destroy(prefixExpr);
+                allocator.destroy(expr);
+                // freeExpressionPointer(allocator, prefixExpr);
+                // freeExpressionPointer(allocator, expr);
+                // allocator.destroy(prefixExpr.right);
+                // allocator.destroy(prefixExpr);
+                // freeExpressionPointer(allocator, expr);
+                // std.debug.print(">>>>>>>>   {}\n", .{expr});
             },
             .infix_expression => |infixExpr| {
                 freeExpressionPointer(allocator, infixExpr.left);
@@ -128,6 +145,13 @@ pub const Program = struct {
         //     self.allocator.free(err);
         // }
         // _ = self;
+        // for (self.statements.items) |item| {
+        //     switch (item) {
+        //         .left => |v| self.allocator.destroy(v),
+        //         else => {},
+        //     }
+        // }
+        // self.allocator.destroy(item);
         self.statements.deinit();
         self.allocator.destroy(self);
         // self.errors.deinit();
