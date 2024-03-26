@@ -584,9 +584,6 @@ test "TestIfElseExpressions" {
     const tests = [_]Test{
         .{ "if (true) { 10 }", .{ .integer = 10 } },
         .{ "if (false) { 10 }", .{ .null = NULL } },
-        .{ "if (false) { 10 }", .{ .null = NULL } },
-        .{ "if (false) { 10 }", .{ .null = NULL } },
-
         .{ "if (1) { 10 }", .{ .integer = 10 } },
         .{ "if (1 < 2) { 10 }", .{ .integer = 10 } },
         .{ "if (1 > 2) { 10 }", .{ .null = NULL } },
