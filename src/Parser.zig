@@ -957,53 +957,53 @@ test "TestIfExpression" {
     }
 }
 
-// test "TestIfElseExpression" {
-//     const input = "if (x < y) { x } else { y }";
-//
-//     const lexer = Lexer.init(input);
-//     var parser = try Parser.init(std.testing.allocator, lexer);
-//     defer parser.deinit();
-//     var program = try parser.parseProgram();
-//     defer program.deinit();
-//
-//     checkParserErrors(parser);
-//
-//     try std.testing.expectEqual(@as(usize, 1), program.statements.items.len);
-//
-//     const stmt = program.statements.items[0];
-//     const if_expr = stmt.expression_statement.expression.if_expression;
-//     const condition_expr = if_expr.condition.infix_expression;
-//     {
-//         try std.testing.expectEqualStrings("if", stmt.tokenLiteral());
-//     }
-//     {
-//         const expected = "x";
-//         const actual = condition_expr.left.identifier.value;
-//         try std.testing.expectEqualStrings(expected, actual);
-//     }
-//     {
-//         const expected = "<";
-//         const actual = condition_expr.operator;
-//         try std.testing.expectEqualStrings(expected, actual);
-//     }
-//     {
-//         const expected = "y";
-//         const actual = condition_expr.right.identifier.value;
-//         try std.testing.expectEqualStrings(expected, actual);
-//     }
-//     try std.testing.expectEqual(@as(usize, 1), if_expr.consequence.statements.items.len);
-//     {
-//         const expected = "x";
-//         const actual = if_expr.consequence.statements.items[0].tokenLiteral();
-//         try std.testing.expectEqualStrings(expected, actual);
-//     }
-//     if (if_expr.alternative) |alternative| {
-//         try std.testing.expectEqual(@as(usize, 1), alternative.statements.items.len);
-//         const alternativeStmt = alternative.statements.items[0];
-//         try std.testing.expectEqualStrings("y", alternativeStmt.tokenLiteral());
-//     }
-// }
-//
+test "TestIfElseExpression" {
+    const input = "if (x < y) { x } else { y }";
+
+    const lexer = Lexer.init(input);
+    var parser = try Parser.init(std.testing.allocator, lexer);
+    defer parser.deinit();
+    var node = parser.parseProgram();
+    defer node.deinit();
+
+    checkParserErrors(parser);
+
+    try std.testing.expectEqual(@as(usize, 1), node.program.statements.items.len);
+
+    const stmt = node.program.statements.items[0];
+    const if_expr = stmt.expression_statement.expression.if_expression;
+    const condition_expr = if_expr.condition.infix_expression;
+    {
+        try std.testing.expectEqualStrings("if", stmt.tokenLiteral());
+    }
+    {
+        const expected = "x";
+        const actual = condition_expr.left.identifier.value;
+        try std.testing.expectEqualStrings(expected, actual);
+    }
+    {
+        const expected = "<";
+        const actual = condition_expr.operator;
+        try std.testing.expectEqualStrings(expected, actual);
+    }
+    {
+        const expected = "y";
+        const actual = condition_expr.right.identifier.value;
+        try std.testing.expectEqualStrings(expected, actual);
+    }
+    try std.testing.expectEqual(@as(usize, 1), if_expr.consequence.statements.items.len);
+    {
+        const expected = "x";
+        const actual = if_expr.consequence.statements.items[0].tokenLiteral();
+        try std.testing.expectEqualStrings(expected, actual);
+    }
+    if (if_expr.alternative) |alternative| {
+        try std.testing.expectEqual(@as(usize, 1), alternative.statements.items.len);
+        const alternativeStmt = alternative.statements.items[0];
+        try std.testing.expectEqualStrings("y", alternativeStmt.tokenLiteral());
+    }
+}
+
 // test "TestFunctionLiteralParsing" {
 //     const input = "fn(x, y) { x + y; }";
 //
