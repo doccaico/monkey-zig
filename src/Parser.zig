@@ -1066,36 +1066,36 @@ pub fn checkParserErrors(parser: Parser) void {
 //     }
 // }
 
-// test "TestFunctionParameterParsing" {
-//     const Test = struct {
-//         []const u8,
-//         usize,
-//     };
-//     const tests = [_]Test{
-//         .{ "fn() {};", 0 },
-//         .{ "fn(x) {};", 1 },
-//         .{ "fn(x, y, z) {};", 3 },
-//     };
-//
-//     for (tests) |t| {
-//         const lexer = Lexer.init(t[0]);
-//         var parser = try Parser.init(std.testing.allocator, lexer);
-//         defer parser.deinit();
-//         var program = try parser.parseProgram();
-//         defer program.deinit();
-//
-//         checkParserErrors(parser);
-//
-//         const stmt = program.statements.items[0];
-//         const fn_lit = stmt.expression_statement.expression.function_literal;
-//         {
-//             const expected = t[1];
-//             const actual = fn_lit.parameters.items.len;
-//             try std.testing.expectEqual(expected, actual);
-//         }
-//     }
-// }
-//
+test "TestFunctionParameterParsing" {
+    const Test = struct {
+        []const u8,
+        usize,
+    };
+    const tests = [_]Test{
+        .{ "fn() {};", 0 },
+        .{ "fn(x) {};", 1 },
+        .{ "fn(x, y, z) {};", 3 },
+    };
+
+    for (tests) |t| {
+        const lexer = Lexer.init(t[0]);
+        var parser = try Parser.init(std.testing.allocator, lexer);
+        defer parser.deinit();
+        var node = parser.parseProgram();
+        defer node.deinit();
+
+        checkParserErrors(parser);
+
+        const stmt = node.program.statements.items[0];
+        const fn_lit = stmt.expression_statement.expression.function_literal;
+        {
+            const expected = t[1];
+            const actual = fn_lit.parameters.items.len;
+            try std.testing.expectEqual(expected, actual);
+        }
+    }
+}
+
 // test "TestCallExpressionParsing" {
 //     const input = "add(1, 2 * 3, 4 + 5);";
 //
