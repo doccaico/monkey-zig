@@ -1065,97 +1065,99 @@ pub fn checkParserErrors(parser: Parser) void {
 //         try std.testing.expectEqualStrings(expected, actual);
 //     }
 // }
-
-test "TestFunctionParameterParsing" {
-    const Test = struct {
-        []const u8,
-        usize,
-    };
-    const tests = [_]Test{
-        .{ "fn() {};", 0 },
-        .{ "fn(x) {};", 1 },
-        .{ "fn(x, y, z) {};", 3 },
-    };
-
-    for (tests) |t| {
-        const lexer = Lexer.init(t[0]);
-        var parser = try Parser.init(std.testing.allocator, lexer);
-        defer parser.deinit();
-        var node = parser.parseProgram();
-        defer node.deinit();
-
-        checkParserErrors(parser);
-
-        const stmt = node.program.statements.items[0];
-        const fn_lit = stmt.expression_statement.expression.function_literal;
-        {
-            const expected = t[1];
-            const actual = fn_lit.parameters.items.len;
-            try std.testing.expectEqual(expected, actual);
-        }
-    }
-}
-
-// test "TestCallExpressionParsing" {
-//     const input = "add(1, 2 * 3, 4 + 5);";
 //
-//     const lexer = Lexer.init(input);
-//     var parser = try Parser.init(std.testing.allocator, lexer);
-//     defer parser.deinit();
-//     var program = try parser.parseProgram();
-//     defer program.deinit();
+// test "TestFunctionParameterParsing" {
+//     const Test = struct {
+//         []const u8,
+//         usize,
+//     };
+//     const tests = [_]Test{
+//         .{ "fn() {};", 0 },
+//         .{ "fn(x) {};", 1 },
+//         .{ "fn(x, y, z) {};", 3 },
+//     };
 //
-//     checkParserErrors(parser);
+//     for (tests) |t| {
+//         const lexer = Lexer.init(t[0]);
+//         var parser = try Parser.init(std.testing.allocator, lexer);
+//         defer parser.deinit();
+//         var node = parser.parseProgram();
+//         defer node.deinit();
 //
-//     try std.testing.expectEqual(@as(usize, 1), program.statements.items.len);
+//         checkParserErrors(parser);
 //
-//     const stmt = program.statements.items[0];
-//     const call_expr = stmt.expression_statement.expression.call_expression;
-//     {
-//         const expected = "add";
-//         const actual = call_expr.function.tokenLiteral();
-//         try std.testing.expectEqualStrings(expected, actual);
-//     }
-//     try std.testing.expectEqual(@as(usize, 3), call_expr.arguments.items.len);
-//     {
-//         const expected = "1";
-//         const actual = call_expr.arguments.items[0].tokenLiteral();
-//         try std.testing.expectEqualStrings(expected, actual);
-//     }
-//     {
-//         const infix_expr = call_expr.arguments.items[1].infix_expression;
+//         const stmt = node.program.statements.items[0];
+//         const fn_lit = stmt.expression_statement.expression.function_literal;
 //         {
-//             const expected = "2";
-//             const actual = infix_expr.left.tokenLiteral();
-//             try std.testing.expectEqualStrings(expected, actual);
-//         }
-//         {
-//             const expected = "*";
-//             const actual = infix_expr.operator;
-//             try std.testing.expectEqualStrings(expected, actual);
-//         }
-//         {
-//             const expected = "3";
-//             const actual = infix_expr.right.tokenLiteral();
-//             try std.testing.expectEqualStrings(expected, actual);
-//         }
-//     }
-//     {
-//         const infix_expr = call_expr.arguments.items[2].infix_expression;
-//         {
-//             const expected = "4";
-//             const actual = infix_expr.left.tokenLiteral();
-//             try std.testing.expectEqualStrings(expected, actual);
-//         }
-//         {
-//             const expected = "+";
-//             const actual = infix_expr.operator;
-//             try std.testing.expectEqualStrings(expected, actual);
-//         }
-//         {
-//             const expected = "5";
-//             const actual = infix_expr.right.tokenLiteral();
-//             try std.testing.expectEqualStrings(expected, actual);
+//             const expected = t[1];
+//             const actual = fn_lit.parameters.items.len;
+//             try std.testing.expectEqual(expected, actual);
 //         }
 //     }
 // }
+//
+test "TestCallExpressionParsing" {
+    const input = "add(1, 2 * 3, 4 + 5);";
+
+    const lexer = Lexer.init(input);
+    var parser = try Parser.init(std.testing.allocator, lexer);
+    defer parser.deinit();
+    var node = parser.parseProgram();
+    defer node.deinit();
+
+    checkParserErrors(parser);
+
+    try std.testing.expectEqual(@as(usize, 1), node.program.statements.items.len);
+
+    const stmt = node.program.statements.items[0];
+    const call_expr = stmt.expression_statement.expression.call_expression;
+    {
+        const expected = "add";
+        const actual = call_expr.function.tokenLiteral();
+        try std.testing.expectEqualStrings(expected, actual);
+    }
+    try std.testing.expectEqual(@as(usize, 3), call_expr.arguments.items.len);
+    {
+        {
+            const expected = "1";
+            const actual = call_expr.arguments.items[0].tokenLiteral();
+            try std.testing.expectEqualStrings(expected, actual);
+        }
+    }
+    {
+        const infix_expr = call_expr.arguments.items[1].infix_expression;
+        {
+            const expected = "2";
+            const actual = infix_expr.left.tokenLiteral();
+            try std.testing.expectEqualStrings(expected, actual);
+        }
+        {
+            const expected = "*";
+            const actual = infix_expr.operator;
+            try std.testing.expectEqualStrings(expected, actual);
+        }
+        {
+            const expected = "3";
+            const actual = infix_expr.right.tokenLiteral();
+            try std.testing.expectEqualStrings(expected, actual);
+        }
+    }
+    {
+        const infix_expr = call_expr.arguments.items[2].infix_expression;
+        {
+            const expected = "4";
+            const actual = infix_expr.left.tokenLiteral();
+            try std.testing.expectEqualStrings(expected, actual);
+        }
+        {
+            const expected = "+";
+            const actual = infix_expr.operator;
+            try std.testing.expectEqualStrings(expected, actual);
+        }
+        {
+            const expected = "5";
+            const actual = infix_expr.right.tokenLiteral();
+            try std.testing.expectEqualStrings(expected, actual);
+        }
+    }
+}
