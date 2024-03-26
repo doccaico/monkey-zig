@@ -611,7 +611,7 @@ test "TestIfElseExpressions" {
                     const actual = x;
                     try std.testing.expectEqual(NULL.null, actual);
                 },
-                else => {},
+                else => unreachable,
             }
         }
     }
