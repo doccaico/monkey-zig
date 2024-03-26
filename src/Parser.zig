@@ -474,8 +474,13 @@ fn parseCallExpression(self: *Parser, function: *Ast.Expression) *Ast.Expression
     self.parseCallArguments(&call_expr.arguments);
 
     const e = self.allocator.create(Ast.Expression) catch @panic("OOM");
-    e.call_expression = call_expr;
+    e.* = .{ .call_expression = call_expr };
     return e;
+
+    // const e = self.allocator.create(Ast.Expression) catch @panic("OOM");
+    // e.call_expression = call_expr;
+    // return e;
+
     // return Ast.Expression{
     //     .call_expression = call_expr,
     // };
@@ -511,11 +516,14 @@ fn peekStatementError(self: *Parser, expected: TokenType) *Ast.Statement {
     const fmt = "expected next token to be {any}, got {any} instead";
     const msg = std.fmt.allocPrint(self.allocator, fmt, .{ expected, self.next_token.type }) catch @panic("OOM");
     self.errors.append(msg) catch @panic("OOM");
-    // return Ast.Statement{ .@"error" = ParserError.UnexpectedToken };
 
     const e = self.allocator.create(Ast.Statement) catch @panic("OOM");
-    e.@"error" = ParserError.UnexpectedToken;
+    e.* = .{ .@"error" = ParserError.UnexpectedToken };
     return e;
+
+    // const e = self.allocator.create(Ast.Statement) catch @panic("OOM");
+    // e.@"error" = ParserError.UnexpectedToken;
+    // return e;
 }
 
 fn peekExpressionError(self: *Parser, expected: TokenType) *Ast.Expression {
@@ -750,79 +758,79 @@ test "TestParsingInfixExpressions" {
     }
 }
 
-// test "TestOperatorPrecedenceParsing" {
-//     const Test = struct { []const u8, []const u8 };
-//     const tests = [_]Test{
-//         .{ "-a * b", "((-a) * b)" },
-//         .{ "!-a", "(!(-a))" },
-//         .{ "a + b + c", "((a + b) + c)" },
-//         .{ "a + b - c", "((a + b) - c)" },
-//         .{ "a * b * c", "((a * b) * c)" },
-//         .{ "a * b / c", "((a * b) / c)" },
-//         .{ "a + b / c", "(a + (b / c))" },
-//         .{ "a + b * c + d / e - f", "(((a + (b * c)) + (d / e)) - f)" },
-//         .{ "3 + 4; -5 * 5", "(3 + 4)((-5) * 5)" },
-//         .{ "5 > 4 == 3 < 4", "((5 > 4) == (3 < 4))" },
-//         .{ "5 < 4 != 3 > 4", "((5 < 4) != (3 > 4))" },
-//         .{ "3 + 4 * 5 == 3 * 1 + 4 * 5", "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))" },
-//
-//         .{ "true", "true" },
-//         .{ "false", "false" },
-//         .{ "3 > 5 == false", "((3 > 5) == false)" },
-//         .{ "3 < 5 == true", "((3 < 5) == true)" },
-//
-//         .{
-//             "1 + (2 + 3) + 4",
-//             "((1 + (2 + 3)) + 4)",
-//         },
-//         .{
-//             "(5 + 5) * 2",
-//             "((5 + 5) * 2)",
-//         },
-//         .{
-//             "2 / (5 + 5)",
-//             "(2 / (5 + 5))",
-//         },
-//         .{
-//             "-(5 + 5)",
-//             "(-(5 + 5))",
-//         },
-//         .{
-//             "!(true == true)",
-//             "(!(true == true))",
-//         },
-//
-//         .{
-//             "a + add(b * c) + d",
-//             "((a + add((b * c))) + d)",
-//         },
-//         .{
-//             "add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))",
-//             "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))",
-//         },
-//         .{
-//             "add(a + b + c * d / f + g)",
-//             "add((((a + b) + ((c * d) / f)) + g))",
-//         },
-//     };
-//
-//     for (tests) |t| {
-//         const lexer = Lexer.init(t[0]);
-//         var parser = try Parser.init(std.testing.allocator, lexer);
-//         defer parser.deinit();
-//         var program = try parser.parseProgram();
-//         defer program.deinit();
-//
-//         checkParserErrors(parser);
-//
-//         var buffer = std.ArrayList(u8).init(std.testing.allocator);
-//         defer buffer.deinit();
-//
-//         try program.string(buffer.writer());
-//         try std.testing.expectEqualStrings(t[1], buffer.items);
-//     }
-// }
-//
+test "TestOperatorPrecedenceParsing" {
+    const Test = struct { []const u8, []const u8 };
+    const tests = [_]Test{
+        .{ "-a * b", "((-a) * b)" },
+        .{ "!-a", "(!(-a))" },
+        .{ "a + b + c", "((a + b) + c)" },
+        .{ "a + b - c", "((a + b) - c)" },
+        .{ "a * b * c", "((a * b) * c)" },
+        .{ "a * b / c", "((a * b) / c)" },
+        .{ "a + b / c", "(a + (b / c))" },
+        .{ "a + b * c + d / e - f", "(((a + (b * c)) + (d / e)) - f)" },
+        .{ "3 + 4; -5 * 5", "(3 + 4)((-5) * 5)" },
+        .{ "5 > 4 == 3 < 4", "((5 > 4) == (3 < 4))" },
+        .{ "5 < 4 != 3 > 4", "((5 < 4) != (3 > 4))" },
+        .{ "3 + 4 * 5 == 3 * 1 + 4 * 5", "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))" },
+
+        .{ "true", "true" },
+        .{ "false", "false" },
+        .{ "3 > 5 == false", "((3 > 5) == false)" },
+        .{ "3 < 5 == true", "((3 < 5) == true)" },
+
+        .{
+            "1 + (2 + 3) + 4",
+            "((1 + (2 + 3)) + 4)",
+        },
+        .{
+            "(5 + 5) * 2",
+            "((5 + 5) * 2)",
+        },
+        .{
+            "2 / (5 + 5)",
+            "(2 / (5 + 5))",
+        },
+        .{
+            "-(5 + 5)",
+            "(-(5 + 5))",
+        },
+        .{
+            "!(true == true)",
+            "(!(true == true))",
+        },
+
+        .{
+            "a + add(b * c) + d",
+            "((a + add((b * c))) + d)",
+        },
+        .{
+            "add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))",
+            "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))",
+        },
+        .{
+            "add(a + b + c * d / f + g)",
+            "add((((a + b) + ((c * d) / f)) + g))",
+        },
+    };
+
+    for (tests) |t| {
+        const lexer = Lexer.init(t[0]);
+        var parser = try Parser.init(std.testing.allocator, lexer);
+        defer parser.deinit();
+        var node = parser.parseProgram();
+        defer node.deinit();
+
+        checkParserErrors(parser);
+
+        var buffer = std.ArrayList(u8).init(std.testing.allocator);
+        defer buffer.deinit();
+
+        try node.program.string(buffer.writer());
+        try std.testing.expectEqualStrings(t[1], buffer.items);
+    }
+}
+
 // test "TestParsingInfixExpressionsWithBool" {
 //     const Test = struct {
 //         []const u8,

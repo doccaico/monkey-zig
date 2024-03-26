@@ -80,7 +80,7 @@ pub const ReturnStatement = struct {
 
     pub fn string(self: ReturnStatement, writer: anytype) !void {
         try writer.print("{s} ", .{self.tokenLiteral()});
-        try self.value.string(writer);
+        try self.return_value.string(writer);
         _ = try writer.write(";");
     }
 };

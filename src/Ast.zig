@@ -100,14 +100,15 @@ pub const Node = union(enum) {
                 }
                 function_literal.deinit();
             },
-            .call_expression => |call_expression| {
-                freeExpressionPointer(allocator, call_expression.function);
-                allocator.destroy(call_expression.function);
-                for (call_expression.arguments.items) |arg| {
+            .call_expression => |callExpr| {
+                freeExpressionPointer(allocator, callExpr.function);
+                for (callExpr.arguments.items) |arg| {
                     freeExpressionPointer(allocator, arg);
                 }
+                callExpr.deinit();
 
-                call_expression.deinit();
+                allocator.destroy(callExpr);
+                allocator.destroy(expr);
             },
             .integer_literal => |intExpr| {
                 allocator.destroy(intExpr);
@@ -159,10 +160,10 @@ pub const Program = struct {
     }
 
     pub fn string(self: Program, writer: anytype) anyerror!void {
-        for (self.statements.items) |*stmt| {
+        for (self.statements.items) |stmt| {
             switch (stmt.*) {
                 .@"error" => {},
-                inline else => |*s| try s.string(writer),
+                inline else => |s| try s.string(writer),
             }
         }
     }
