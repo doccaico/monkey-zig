@@ -252,18 +252,12 @@ fn parseExpression(self: *Parser, precedence: OperatorPrecedence) *Ast.Expressio
 }
 
 fn parseIdentifier(self: *Parser) *Ast.Expression {
-    const e = self.allocator.create(Ast.Expression) catch @panic("OOM");
-
-    // const i = self.allocator.create(Ast.Identifier) catch @panic("OOM");
-    // i.token = self.cur_token;
-    // i.value = self.cur_token.literal;
-    // const i = Ast.Identifier{ .token = self.cur_token, .value = self.cur_token.literal };
-
     const i = self.allocator.create(Ast.Identifier) catch @panic("OOM");
     i.token = self.cur_token;
     i.value = self.cur_token.literal;
 
-    e.identifier = i;
+    const e = self.allocator.create(Ast.Expression) catch @panic("OOM");
+    e.* = .{ .identifier = i };
     return e;
 }
 
@@ -277,12 +271,8 @@ fn parseIntegerLiteral(self: *Parser) *Ast.Expression {
     };
 
     const e = self.allocator.create(Ast.Expression) catch @panic("OOM");
-    // e.integer_literal = ilit;
     e.* = .{ .integer_literal = ilit };
     return e;
-    // return Ast.Expression{
-    //     .integer_literal = ilit,
-    // };
 }
 
 fn parsePrefixExpression(self: *Parser) *Ast.Expression {
@@ -634,29 +624,28 @@ test "TestReturnStatement" {
     }
 }
 
-// test "TestIndentiferExpression" {
-//     const input = "foobar;";
-//
-//     const lexer = Lexer.init(input);
-//     var parser = try Parser.init(std.testing.allocator, lexer);
-//     defer parser.deinit();
-//     var program = try parser.parseProgram();
-//     defer program.deinit();
-//
-//     checkParserErrors(parser);
-//
-//     try std.testing.expectEqual(@as(usize, 1), program.statements.items.len);
-//
-//     const stmt = program.statements.items[0];
-//
-//     try std.testing.expectEqualStrings("foobar", stmt.tokenLiteral());
-//     try std.testing.expectEqualStrings("foobar", stmt.expression_statement.tokenLiteral());
-//     try std.testing.expectEqualStrings("foobar", stmt.expression_statement.expression.tokenLiteral());
-//     try std.testing.expectEqualStrings("foobar", stmt.expression_statement.expression.identifier.tokenLiteral());
-//
-//     try std.testing.expectEqualStrings("foobar", stmt.expression_statement.expression.identifier.value);
-// }
-//
+test "TestIndentiferExpression" {
+    const input = "foobar;";
+
+    const lexer = Lexer.init(input);
+    var parser = try Parser.init(std.testing.allocator, lexer);
+    defer parser.deinit();
+    var node = parser.parseProgram();
+    defer node.deinit();
+
+    checkParserErrors(parser);
+
+    try std.testing.expectEqual(@as(usize, 1), node.program.statements.items.len);
+
+    const stmt = node.program.statements.items[0];
+
+    try std.testing.expectEqualStrings("foobar", stmt.tokenLiteral());
+    try std.testing.expectEqualStrings("foobar", stmt.expression_statement.tokenLiteral());
+    try std.testing.expectEqualStrings("foobar", stmt.expression_statement.expression.tokenLiteral());
+    try std.testing.expectEqualStrings("foobar", stmt.expression_statement.expression.identifier.tokenLiteral());
+    try std.testing.expectEqualStrings("foobar", stmt.expression_statement.expression.identifier.value);
+}
+
 // test "TestIntegerLiteralExpression" {
 //     const input = "5;";
 //

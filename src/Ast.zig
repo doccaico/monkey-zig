@@ -117,6 +117,10 @@ pub const Node = union(enum) {
                 allocator.destroy(booleanExpr);
                 allocator.destroy(expr);
             },
+            .identifier => |identifierExpr| {
+                allocator.destroy(identifierExpr);
+                allocator.destroy(expr);
+            },
             // .expression_statement => |_| {
             //     std.debug.print(">>>>>>>>>>>>>>>>>>>>>>>>>>   \n", .{});
             // },
