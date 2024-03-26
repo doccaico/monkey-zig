@@ -26,6 +26,7 @@ pub const Node = union(enum) {
                 },
                 .return_statement => |returnStmt| {
                     freeExpressionPointer(self.program.allocator, returnStmt.return_value);
+                    returnStmt.deinit();
                 },
                 else => {},
             }

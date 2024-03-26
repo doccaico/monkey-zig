@@ -194,9 +194,7 @@ fn parseLetStatement(self: *Parser) *Ast.Statement {
 }
 
 fn parseReturnStatement(self: *Parser) *Ast.Statement {
-    const rs = self.allocator.create(Ast.ReturnStatement) catch @panic("OOM");
-    rs.token = self.cur_token;
-    rs.allocator = self.allocator;
+    const rs = Ast.ReturnStatement.init(self.allocator, self.cur_token);
 
     self.nextToken();
 
@@ -207,14 +205,12 @@ fn parseReturnStatement(self: *Parser) *Ast.Statement {
     }
 
     const s = self.allocator.create(Ast.Statement) catch @panic("OOM");
-    s.return_statement = rs;
+    s.* = .{ .return_statement = rs };
     return s;
 }
 
 fn parseExpressionStatement(self: *Parser) *Ast.Statement {
-    const es = self.allocator.create(Ast.ExpressionStatement) catch @panic("OOM");
-    es.token = self.cur_token;
-    es.allocator = self.allocator;
+    const es = Ast.ExpressionStatement.init(self.allocator, self.cur_token);
     es.expression = self.parseExpression(.lowest);
 
     if (self.nextTokenIs(.semicolon)) {
@@ -222,10 +218,8 @@ fn parseExpressionStatement(self: *Parser) *Ast.Statement {
     }
 
     const s = self.allocator.create(Ast.Statement) catch @panic("OOM");
-    // s.expression_statement = es;
     s.* = .{ .expression_statement = es };
     return s;
-    // return Ast.Statement{ .expression_statement = es };
 }
 
 fn parseExpression(self: *Parser, precedence: OperatorPrecedence) *Ast.Expression {

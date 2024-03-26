@@ -103,3 +103,9 @@ pub fn createObjectInteger() *Integer {
 
     return new_obj;
 }
+
+pub fn createObjectReturnValue() *ReturnValue {
+    const new_obj = Evaluator.eval_allocator.create(ReturnValue) catch @panic("OOM");
+
+    return new_obj;
+}

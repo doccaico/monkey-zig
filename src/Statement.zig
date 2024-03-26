@@ -47,9 +47,20 @@ pub const LetStatement = struct {
 };
 
 pub const ReturnStatement = struct {
-    token: Token,
     allocator: std.mem.Allocator,
+    token: Token,
     return_value: *Ast.Expression,
+
+    pub fn init(allocator: std.mem.Allocator, token: Token) *ReturnStatement {
+        const rs = allocator.create(ReturnStatement) catch @panic("OOM");
+        rs.allocator = allocator;
+        rs.token = token;
+        return rs;
+    }
+
+    pub fn deinit(self: *ReturnStatement) void {
+        self.allocator.destroy(self);
+    }
 
     pub fn tokenLiteral(self: ReturnStatement) []const u8 {
         return self.token.literal;
@@ -63,9 +74,16 @@ pub const ReturnStatement = struct {
 };
 
 pub const ExpressionStatement = struct {
+    allocator: std.mem.Allocator,
     token: Token,
     expression: *Ast.Expression,
-    allocator: std.mem.Allocator,
+
+    pub fn init(allocator: std.mem.Allocator, token: Token) *ExpressionStatement {
+        const es = allocator.create(ExpressionStatement) catch @panic("OOM");
+        es.allocator = allocator;
+        es.token = token;
+        return es;
+    }
 
     pub fn deinit(self: *ExpressionStatement) void {
         self.allocator.destroy(self);
