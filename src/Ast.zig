@@ -62,7 +62,10 @@ pub const Node = union(enum) {
                             freeExpressionPointer(allocator, v.expression);
                             v.deinit();
                         },
-                        .return_statement => |v| freeExpressionPointer(allocator, v.return_value),
+                        .return_statement => |v| {
+                            freeExpressionPointer(allocator, v.return_value);
+                            v.deinit();
+                        },
                         else => {},
                     }
                     allocator.destroy(stmt);
@@ -77,7 +80,10 @@ pub const Node = union(enum) {
                                 freeExpressionPointer(allocator, v.expression);
                                 v.deinit();
                             },
-                            .return_statement => |v| freeExpressionPointer(allocator, v.return_value),
+                            .return_statement => |v| {
+                                freeExpressionPointer(allocator, v.return_value);
+                                v.deinit();
+                            },
                             else => {},
                         }
                         allocator.destroy(stmt);

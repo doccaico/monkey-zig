@@ -6,12 +6,14 @@ pub const INTEGER_OBJ: ObjectType = "INTEGER";
 pub const BOOLEAN_OBJ: ObjectType = "BOOLEAN";
 pub const NULL_OBJ: ObjectType = "NULL";
 pub const RETURN_VALUE_OBJ: ObjectType = "RETURN_VALUE";
+pub const ERROR_OBJ: ObjectType = "ERROR";
 
 pub const Object = union(enum(u8)) {
     integer: *Integer,
     boolean: *Boolean,
     null: *Null,
     return_value: *ReturnValue,
+    @"error": *Error,
 
     pub fn inspect(self: Object, writer: anytype) anyerror!void {
         return switch (self) {
@@ -77,6 +79,19 @@ pub const ReturnValue = struct {
     }
 };
 
+pub const Error = struct {
+    message: []const u8,
+
+    pub fn inspect(self: Error, writer: anytype) anyerror!void {
+        try writer.print("ERROR: {}", .{self.message});
+    }
+
+    pub fn getType(self: Error) ObjectType {
+        _ = self;
+        return ERROR_OBJ;
+    }
+};
+
 // functions
 
 pub fn createObjectBoolean(value: bool) *Object {
@@ -106,6 +121,12 @@ pub fn createObjectInteger() *Integer {
 
 pub fn createObjectReturnValue() *ReturnValue {
     const new_obj = Evaluator.eval_allocator.create(ReturnValue) catch @panic("OOM");
+
+    return new_obj;
+}
+
+pub fn createObjectError() *Error {
+    const new_obj = Evaluator.eval_allocator.create(Error) catch @panic("OOM");
 
     return new_obj;
 }
