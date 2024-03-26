@@ -1,9 +1,4 @@
 const std = @import("std");
-// const Self = @This();
-// const Token = @This();
-
-// type: TokenType = .illegal,
-// literal: []const u8 = "",
 
 type: TokenType,
 literal: []const u8,
@@ -62,21 +57,3 @@ pub const keywords = std.ComptimeStringMap(TokenType, .{
 pub fn lookupIdent(literal: []const u8) TokenType {
     return keywords.get(literal) orelse .ident;
 }
-
-// pub const Token = struct {
-// };
-
-// pub fn init(@"type": TokenType, literal: []const u8) Self {
-//     return Self{
-//         .type = @"type",
-//         .literal = literal,
-//     };
-// }
-
-// pub fn newToken(tokenType: TokenType, ch: []const u8) Self {
-//     return switch(tokenType) {
-//         .illegal => Self{.Type: tokenType, Literal: }
-//     };
-// }
-// pub const Token = struct {
-// };

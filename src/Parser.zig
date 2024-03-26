@@ -151,8 +151,10 @@ fn parseStatement(self: *Parser) *Ast.Statement {
 }
 
 fn parseLetStatement(self: *Parser) *Ast.Statement {
-    const ls = self.allocator.create(Ast.LetStatement) catch @panic("OOM");
-    ls.token = self.cur_token;
+    const ls = Ast.LetStatement.init(self.allocator, self.cur_token);
+
+    // const ls = self.allocator.create(Ast.LetStatement) catch @panic("OOM");
+    // ls.token = self.cur_token;
     // var ls = Ast.LetStatement{
     //     .token = self.cur_token,
     //     .name = undefined,
@@ -187,9 +189,11 @@ fn parseLetStatement(self: *Parser) *Ast.Statement {
         self.nextToken();
     }
 
-    const s = self.allocator.create(Ast.Statement) catch @panic("OOM");
-    s.let_statement = ls;
+    // const s = self.allocator.create(Ast.Statement) catch @panic("OOM");
+    // s.let_statement = ls;
 
+    const s = self.allocator.create(Ast.Statement) catch @panic("OOM");
+    s.* = .{ .let_statement = ls };
     return s;
 }
 
@@ -556,21 +560,7 @@ fn conversionError(self: *Parser, literal: []const u8) *Ast.Expression {
     return e;
 }
 
-// Test Utils
-
-// pub fn checkParserErrors(parser: Parser) !void {
-//     const errors = parser.errors;
-//     if (errors.items.len == 0) {
-//         return;
-//     }
-//
-//     std.debug.print("parser has {d} errors\n", .{errors.items.len});
-//     for (errors.items) |msg| {
-//         std.debug.print("parser error: {s}\n", .{msg});
-//     }
-//     return error.ParserError;
-//     // std.process.exit(255);
-// }
+// tests
 
 pub fn checkParserErrors(parser: Parser) void {
     if (parser.errors.items.len == 0) {
@@ -583,41 +573,41 @@ pub fn checkParserErrors(parser: Parser) void {
     @panic("some error occurred");
 }
 
-// test "TestLetStatement" {
-//     const input =
-//         \\let x = 5;
-//         \\let y = 10;
-//         \\let foobar = 838383;
-//     ;
-//
-//     const expected_idents = [_][]const u8{
-//         "x",
-//         "y",
-//         "foobar",
-//     };
-//
-//     const expected_vals = [_]i64{ 5, 10, 838383 };
-//
-//     const lexer = Lexer.init(input);
-//     var parser = try Parser.init(std.testing.allocator, lexer);
-//     defer parser.deinit();
-//     var program = try parser.parseProgram();
-//     defer program.deinit();
-//
-//     checkParserErrors(parser);
-//
-//     try std.testing.expectEqual(@as(usize, 3), program.statements.items.len);
-//
-//     for (expected_idents, expected_vals, program.statements.items) |ident, val, stmt| {
-//         try std.testing.expectEqualStrings("let", stmt.tokenLiteral());
-//         try std.testing.expect(.let == stmt.let_statement.token.type);
-//         try std.testing.expectEqualStrings("let", stmt.let_statement.token.literal);
-//         try std.testing.expectEqualStrings(ident, stmt.let_statement.name.value);
-//         try std.testing.expectEqualStrings(ident, stmt.let_statement.name.token.literal);
-//         try std.testing.expectEqual(val, stmt.let_statement.value.integer_literal.value);
-//     }
-// }
-//
+test "TestLetStatement" {
+    const input =
+        \\let x = 5;
+        \\let y = 10;
+        \\let foobar = 838383;
+    ;
+
+    const expected_idents = [_][]const u8{
+        "x",
+        "y",
+        "foobar",
+    };
+
+    const expected_vals = [_]i64{ 5, 10, 838383 };
+
+    const lexer = Lexer.init(input);
+    var parser = try Parser.init(std.testing.allocator, lexer);
+    defer parser.deinit();
+    var node = parser.parseProgram();
+    defer node.deinit();
+
+    checkParserErrors(parser);
+
+    try std.testing.expectEqual(@as(usize, 3), node.program.statements.items.len);
+
+    for (expected_idents, expected_vals, node.program.statements.items) |ident, val, stmt| {
+        try std.testing.expectEqualStrings("let", stmt.tokenLiteral());
+        try std.testing.expect(.let == stmt.let_statement.token.type);
+        try std.testing.expectEqualStrings("let", stmt.let_statement.token.literal);
+        try std.testing.expectEqualStrings(ident, stmt.let_statement.name.value);
+        try std.testing.expectEqualStrings(ident, stmt.let_statement.name.token.literal);
+        try std.testing.expectEqual(val, stmt.let_statement.value.integer_literal.value);
+    }
+}
+
 // test "TestReturnStatement" {
 //     const input =
 //         \\return 5;

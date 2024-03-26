@@ -23,6 +23,7 @@ pub const Node = union(enum) {
                 .let_statement => |letStmt| {
                     self.program.allocator.destroy(letStmt.name);
                     freeExpressionPointer(self.program.allocator, letStmt.value);
+                    letStmt.deinit();
                 },
                 .return_statement => |returnStmt| {
                     freeExpressionPointer(self.program.allocator, returnStmt.return_value);

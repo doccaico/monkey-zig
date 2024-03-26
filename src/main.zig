@@ -54,5 +54,5 @@ test {
     _ = @import("Statement.zig");
     _ = @import("Expression.zig");
     _ = @import("Repl.zig");
-    // _ = @import("Evaluator.zig");
+    _ = @import("Evaluator.zig");
 }

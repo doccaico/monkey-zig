@@ -29,9 +29,21 @@ pub const Statement = union(enum(u8)) {
 };
 
 pub const LetStatement = struct {
+    allocator: std.mem.Allocator,
     token: Token,
     name: *Ast.Identifier,
     value: *Ast.Expression,
+
+    pub fn init(allocator: std.mem.Allocator, token: Token) *LetStatement {
+        const ls = allocator.create(LetStatement) catch @panic("OOM");
+        ls.allocator = allocator;
+        ls.token = token;
+        return ls;
+    }
+
+    pub fn deinit(self: *LetStatement) void {
+        self.allocator.destroy(self);
+    }
 
     pub fn tokenLiteral(self: LetStatement) []const u8 {
         return self.token.literal;
