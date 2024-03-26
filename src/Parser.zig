@@ -608,32 +608,32 @@ test "TestLetStatement" {
     }
 }
 
-// test "TestReturnStatement" {
-//     const input =
-//         \\return 5;
-//         \\return 10;
-//         \\return 993322;
-//     ;
-//     const expected_vals = [_]i64{ 5, 10, 993322 };
-//
-//     const lexer = Lexer.init(input);
-//     var parser = try Parser.init(std.testing.allocator, lexer);
-//     defer parser.deinit();
-//     var program = try parser.parseProgram();
-//     defer program.deinit();
-//
-//     checkParserErrors(parser);
-//
-//     try std.testing.expectEqual(@as(usize, 3), program.statements.items.len);
-//
-//     for (expected_vals, program.statements.items) |val, stmt| {
-//         try std.testing.expectEqualStrings("return", stmt.tokenLiteral());
-//         try std.testing.expect(.@"return" == stmt.return_statement.token.type);
-//         try std.testing.expectEqualStrings("return", stmt.return_statement.token.literal);
-//         try std.testing.expectEqual(val, stmt.return_statement.value.integer_literal.value);
-//     }
-// }
-//
+test "TestReturnStatement" {
+    const input =
+        \\return 5;
+        \\return 10;
+        \\return 993322;
+    ;
+    const expected_vals = [_]i64{ 5, 10, 993322 };
+
+    const lexer = Lexer.init(input);
+    var parser = try Parser.init(std.testing.allocator, lexer);
+    defer parser.deinit();
+    var node = parser.parseProgram();
+    defer node.deinit();
+
+    checkParserErrors(parser);
+
+    try std.testing.expectEqual(@as(usize, 3), node.program.statements.items.len);
+
+    for (expected_vals, node.program.statements.items) |val, stmt| {
+        try std.testing.expectEqualStrings("return", stmt.tokenLiteral());
+        try std.testing.expect(.@"return" == stmt.return_statement.token.type);
+        try std.testing.expectEqualStrings("return", stmt.return_statement.token.literal);
+        try std.testing.expectEqual(val, stmt.return_statement.return_value.integer_literal.value);
+    }
+}
+
 // test "TestIndentiferExpression" {
 //     const input = "foobar;";
 //
