@@ -103,8 +103,6 @@ pub const Node = union(enum) {
                     }
                     allocator.destroy(stmt);
                 }
-                // funcLit.body.statements.deinit();
-                // allocator.destroy(funcLit.body);
                 funcLit.deinit();
                 allocator.destroy(funcLit);
                 allocator.destroy(expr);
@@ -178,33 +176,49 @@ pub const Program = struct {
     }
 };
 
-// test "TestString()" {
-//     const Token = @import("Token.zig");
-//
-//     var statements = std.ArrayList(Ast.Statement).init(std.testing.allocator);
-//     try statements.append(Ast.Statement{
-//         .let_statement = Ast.LetStatement{
-//             .token = Token{ .type = .let, .literal = "let" },
-//             .name = Ast.Identifier{
-//                 .token = Token{ .type = .ident, .literal = "myVar" },
-//                 .value = "myVar",
-//             },
-//             .value = Ast.Expression{
-//                 .identifier = Ast.Identifier{
-//                     .token = Token{ .type = .ident, .literal = "anotherVar" },
-//                     .value = "anotherVar",
-//                 },
-//             },
-//         },
-//     });
-//
-//     var program = Program{ .allocator = std.testing.allocator, .statements = statements };
-//     defer program.deinit();
-//
-//     try std.testing.expectEqual(@as(usize, 1), program.statements.items.len);
-//
-//     var buffer = std.ArrayList(u8).init(std.testing.allocator);
-//     defer buffer.deinit();
-//     try program.string(buffer.writer());
-//     try std.testing.expectEqualStrings("let myVar = anotherVar;", buffer.items);
-// }
+test "TestString" {
+    const Token = @import("Token.zig");
+
+    const allocator = std.testing.allocator;
+
+    var statements = std.ArrayList(*Ast.Statement).init(std.testing.allocator);
+    defer statements.deinit();
+
+    const stmt = try allocator.create(Ast.Statement);
+    defer allocator.destroy(stmt);
+
+    const let_stmt = try allocator.create(Ast.LetStatement);
+    defer allocator.destroy(let_stmt);
+
+    const ident1 = try allocator.create(Ast.Identifier);
+    defer allocator.destroy(ident1);
+    ident1.token = Token{ .type = .ident, .literal = "myVar" };
+    ident1.value = "myVar";
+
+    const ident2 = try allocator.create(Ast.Identifier);
+    defer allocator.destroy(ident2);
+    ident2.token = Token{ .type = .ident, .literal = "anotherVar" };
+    ident2.value = "anotherVar";
+
+    const expr = try allocator.create(Ast.Expression);
+    defer allocator.destroy(expr);
+
+    expr.* = .{ .identifier = ident2 };
+
+    let_stmt.token = Token{ .type = .let, .literal = "let" };
+    let_stmt.name = ident1;
+    let_stmt.value = expr;
+
+    stmt.* = .{ .let_statement = let_stmt };
+
+    try statements.append(stmt);
+
+    const program = Program{ .allocator = allocator, .statements = statements };
+
+    try std.testing.expectEqual(@as(usize, 1), program.statements.items.len);
+
+    var buffer = std.ArrayList(u8).init(allocator);
+    defer buffer.deinit();
+    try program.string(buffer.writer());
+    try std.testing.expectEqualStrings("let myVar = anotherVar;", buffer.items);
+}
