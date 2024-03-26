@@ -563,7 +563,7 @@ test "TestBangOperator" {
 }
 
 pub const Types1 = union(enum) {
-    null,
+    null: *Object.Object,
     integer: i64,
 };
 
@@ -575,13 +575,13 @@ test "TestIfElseExpressions" {
 
     const tests = [_]Test{
         .{ "if (true) { 10 }", .{ .integer = 10 } },
-        .{ "if (false) { 10 }", .{ .null = void{} } },
-        .{ "if (false) { 10 }", .{ .null = void{} } },
-        .{ "if (false) { 10 }", .{ .null = void{} } },
+        .{ "if (false) { 10 }", .{ .null = NULL } },
+        .{ "if (false) { 10 }", .{ .null = NULL } },
+        .{ "if (false) { 10 }", .{ .null = NULL } },
 
         .{ "if (1) { 10 }", .{ .integer = 10 } },
         .{ "if (1 < 2) { 10 }", .{ .integer = 10 } },
-        .{ "if (1 > 2) { 10 }", .{ .null = void{} } },
+        .{ "if (1 > 2) { 10 }", .{ .null = NULL } },
         .{ "if (1 > 2) { 10 } else { 20 }", .{ .integer = 20 } },
         .{ "if (1 < 2) { 10 } else { 20 }", .{ .integer = 10 } },
     };
@@ -603,9 +603,15 @@ test "TestIfElseExpressions" {
         {
             const expected = t[1];
             switch (obj.?.*) {
-                .integer => |v| try std.testing.expectEqual(expected.integer, v.value),
-                .null => |_| try std.testing.expectEqual(expected.null, void{}),
-                else => unreachable,
+                .integer => |x| {
+                    const actual = x.value;
+                    try std.testing.expectEqual(expected.integer, actual);
+                },
+                .null => |x| {
+                    const actual = x;
+                    try std.testing.expectEqual(NULL.null, actual);
+                },
+                else => {},
             }
         }
     }
