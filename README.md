@@ -4,11 +4,7 @@ A Zig/Ziglang version [monkey](https://monkeylang.org/) language interpreter. Fr
 
 ## Memo
 ```
-:: src/main.zig
+# do all tests (on Windows)
 
-_ = @import("Evaluator.zig"); 
-
-をコメントアウトすると zig test src/main.zig でこける
+$ zig test src\main.zig
 ```
-
-#### (3.5 - Evaluating Expressions 辺りまで進んだと思う)
