@@ -706,50 +706,50 @@ test "TestPrefixExpression" {
     }
 }
 
-// test "TestParsingInfixExpressions" {
-//     const Test = struct { []const u8, i64, []const u8, i64 };
-//     const tests = [_]Test{
-//         .{ "5 + 5;", 5, "+", 5 },
-//         .{ "5 - 5;", 5, "-", 5 },
-//         .{ "5 * 5;", 5, "*", 5 },
-//         .{ "5 / 5;", 5, "/", 5 },
-//         .{ "5 > 5;", 5, ">", 5 },
-//         .{ "5 < 5;", 5, "<", 5 },
-//         .{ "5 == 5;", 5, "==", 5 },
-//         .{ "5 != 5;", 5, "!=", 5 },
-//     };
-//
-//     for (tests) |t| {
-//         const lexer = Lexer.init(t[0]);
-//         var parser = try Parser.init(std.testing.allocator, lexer);
-//         defer parser.deinit();
-//         var program = try parser.parseProgram();
-//         defer program.deinit();
-//
-//         checkParserErrors(parser);
-//
-//         try std.testing.expectEqual(@as(usize, 1), program.statements.items.len);
-//
-//         const stmt = program.statements.items[0];
-//         const infix_expr = stmt.expression_statement.expression.infix_expression;
-//         {
-//             const expected = t[1];
-//             const actual = infix_expr.left.integer_literal.value;
-//             try std.testing.expectEqual(expected, actual);
-//         }
-//         {
-//             const expected = t[2];
-//             const actual = infix_expr.operator;
-//             try std.testing.expectEqualStrings(expected, actual);
-//         }
-//         {
-//             const expected = t[3];
-//             const actual = infix_expr.right.integer_literal.value;
-//             try std.testing.expectEqual(expected, actual);
-//         }
-//     }
-// }
-//
+test "TestParsingInfixExpressions" {
+    const Test = struct { []const u8, i64, []const u8, i64 };
+    const tests = [_]Test{
+        .{ "5 + 5;", 5, "+", 5 },
+        .{ "5 - 5;", 5, "-", 5 },
+        .{ "5 * 5;", 5, "*", 5 },
+        .{ "5 / 5;", 5, "/", 5 },
+        .{ "5 > 5;", 5, ">", 5 },
+        .{ "5 < 5;", 5, "<", 5 },
+        .{ "5 == 5;", 5, "==", 5 },
+        .{ "5 != 5;", 5, "!=", 5 },
+    };
+
+    for (tests) |t| {
+        const lexer = Lexer.init(t[0]);
+        var parser = try Parser.init(std.testing.allocator, lexer);
+        defer parser.deinit();
+        var node = parser.parseProgram();
+        defer node.deinit();
+
+        checkParserErrors(parser);
+
+        try std.testing.expectEqual(@as(usize, 1), node.program.statements.items.len);
+
+        const stmt = node.program.statements.items[0];
+        const infix_expr = stmt.expression_statement.expression.infix_expression;
+        {
+            const expected = t[1];
+            const actual = infix_expr.left.integer_literal.value;
+            try std.testing.expectEqual(expected, actual);
+        }
+        {
+            const expected = t[2];
+            const actual = infix_expr.operator;
+            try std.testing.expectEqualStrings(expected, actual);
+        }
+        {
+            const expected = t[3];
+            const actual = infix_expr.right.integer_literal.value;
+            try std.testing.expectEqual(expected, actual);
+        }
+    }
+}
+
 // test "TestOperatorPrecedenceParsing" {
 //     const Test = struct { []const u8, []const u8 };
 //     const tests = [_]Test{
