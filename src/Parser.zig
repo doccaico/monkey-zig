@@ -831,50 +831,50 @@ test "TestOperatorPrecedenceParsing" {
     }
 }
 
-// test "TestParsingInfixExpressionsWithBool" {
-//     const Test = struct {
-//         []const u8,
-//         bool,
-//         []const u8,
-//         bool,
-//     };
-//     const tests = [_]Test{
-//         .{ "true == true", true, "==", true },
-//         .{ "true != false", true, "!=", false },
-//         .{ "false == false", false, "==", false },
-//     };
-//
-//     for (tests) |t| {
-//         const lexer = Lexer.init(t[0]);
-//         var parser = try Parser.init(std.testing.allocator, lexer);
-//         defer parser.deinit();
-//         var program = try parser.parseProgram();
-//         defer program.deinit();
-//
-//         checkParserErrors(parser);
-//
-//         try std.testing.expectEqual(@as(usize, 1), program.statements.items.len);
-//
-//         const stmt = program.statements.items[0];
-//         const infix_expr = stmt.expression_statement.expression.infix_expression;
-//         {
-//             const expected = t[1];
-//             const actual = infix_expr.left.boolean.value;
-//             try std.testing.expectEqual(expected, actual);
-//         }
-//         {
-//             const expected = t[2];
-//             const actual = infix_expr.operator;
-//             try std.testing.expectEqualStrings(expected, actual);
-//         }
-//         {
-//             const expected = t[3];
-//             const actual = infix_expr.right.boolean.value;
-//             try std.testing.expectEqual(expected, actual);
-//         }
-//     }
-// }
-//
+test "TestParsingInfixExpressionsWithBool" {
+    const Test = struct {
+        []const u8,
+        bool,
+        []const u8,
+        bool,
+    };
+    const tests = [_]Test{
+        .{ "true == true", true, "==", true },
+        .{ "true != false", true, "!=", false },
+        .{ "false == false", false, "==", false },
+    };
+
+    for (tests) |t| {
+        const lexer = Lexer.init(t[0]);
+        var parser = try Parser.init(std.testing.allocator, lexer);
+        defer parser.deinit();
+        var node = parser.parseProgram();
+        defer node.deinit();
+
+        checkParserErrors(parser);
+
+        try std.testing.expectEqual(@as(usize, 1), node.program.statements.items.len);
+
+        const stmt = node.program.statements.items[0];
+        const infix_expr = stmt.expression_statement.expression.infix_expression;
+        {
+            const expected = t[1];
+            const actual = infix_expr.left.boolean.value;
+            try std.testing.expectEqual(expected, actual);
+        }
+        {
+            const expected = t[2];
+            const actual = infix_expr.operator;
+            try std.testing.expectEqualStrings(expected, actual);
+        }
+        {
+            const expected = t[3];
+            const actual = infix_expr.right.boolean.value;
+            try std.testing.expectEqual(expected, actual);
+        }
+    }
+}
+
 // test "TestParsingPrefixExpressions" {
 //     const Test = struct {
 //         []const u8,
