@@ -89,16 +89,25 @@ pub const Node = union(enum) {
                 allocator.destroy(ifExpr);
                 allocator.destroy(expr);
             },
-            .function_literal => |function_literal| {
-                for (function_literal.body.statements.items) |stmt| {
+            .function_literal => |funcLit| {
+                for (funcLit.parameters.items) |param| {
+                    allocator.destroy(param);
+                }
+                for (funcLit.body.statements.items) |stmt| {
                     switch (stmt.*) {
-                        .expression_statement => |exprStmt| {
-                            freeExpressionPointer(allocator, exprStmt.expression);
+                        .expression_statement => |v| {
+                            freeExpressionPointer(allocator, v.expression);
+                            v.deinit();
                         },
                         else => {},
                     }
+                    allocator.destroy(stmt);
                 }
-                function_literal.deinit();
+                // funcLit.body.statements.deinit();
+                // allocator.destroy(funcLit.body);
+                funcLit.deinit();
+                allocator.destroy(funcLit);
+                allocator.destroy(expr);
             },
             .call_expression => |callExpr| {
                 freeExpressionPointer(allocator, callExpr.function);

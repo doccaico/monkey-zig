@@ -133,13 +133,13 @@ pub const IfExpression = struct {
 
 pub const FunctionLiteral = struct {
     token: Token,
-    parameters: std.ArrayList(Identifier),
+    parameters: std.ArrayList(*Identifier),
     body: *Ast.BlockStatement,
 
     pub fn init(allocator: std.mem.Allocator, token: Token) *FunctionLiteral {
         const f = allocator.create(FunctionLiteral) catch @panic("OOM");
         f.token = token;
-        f.parameters = std.ArrayList(Identifier).init(allocator);
+        f.parameters = std.ArrayList(*Identifier).init(allocator);
         f.body = undefined;
         return f;
     }
