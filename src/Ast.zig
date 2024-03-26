@@ -18,7 +18,7 @@ pub const Node = union(enum) {
             switch (stmt.*) {
                 .expression_statement => |exprStmt| {
                     freeExpressionPointer(self.program.allocator, exprStmt.expression);
-                    self.program.allocator.destroy(exprStmt);
+                    exprStmt.deinit();
                 },
                 .let_statement => |letStmt| {
                     self.program.allocator.destroy(letStmt.name);
@@ -29,6 +29,7 @@ pub const Node = union(enum) {
                 },
                 else => {},
             }
+
             self.program.allocator.destroy(stmt);
         }
         self.program.statements.deinit();
@@ -52,13 +53,39 @@ pub const Node = union(enum) {
             },
             .if_expression => |ifExpr| {
                 freeExpressionPointer(allocator, ifExpr.condition);
-                allocator.destroy(ifExpr.condition);
+
+                for (ifExpr.consequence.statements.items) |stmt| {
+                    switch (stmt.*) {
+                        .expression_statement => |v| {
+                            freeExpressionPointer(allocator, v.expression);
+                            v.deinit();
+                        },
+                        .return_statement => |v| freeExpressionPointer(allocator, v.return_value),
+                        else => {},
+                    }
+                    allocator.destroy(stmt);
+                }
 
                 ifExpr.consequence.deinit();
 
-                if (ifExpr.alternative) |alternative| {
-                    alternative.deinit();
+                if (ifExpr.alternative) |alt| {
+                    for (alt.statements.items) |stmt| {
+                        switch (stmt.*) {
+                            .expression_statement => |v| {
+                                freeExpressionPointer(allocator, v.expression);
+                                v.deinit();
+                            },
+                            .return_statement => |v| freeExpressionPointer(allocator, v.return_value),
+                            else => {},
+                        }
+                        allocator.destroy(stmt);
+                    }
+                    alt.statements.deinit();
+                    allocator.destroy(alt);
                 }
+
+                allocator.destroy(ifExpr);
+                allocator.destroy(expr);
             },
             .function_literal => |function_literal| {
                 for (function_literal.body.statements.items) |stmt| {
@@ -89,7 +116,7 @@ pub const Node = union(enum) {
                 allocator.destroy(expr);
             },
             // .expression_statement => |_| {
-            // std.debug.print(">>   {}\n", .{intExpr});
+            //     std.debug.print(">>>>>>>>>>>>>>>>>>>>>>>>>>   \n", .{});
             // },
             else => {},
         }
@@ -112,45 +139,14 @@ pub const Program = struct {
         prg.statements = std.ArrayList(*Ast.Statement).init(allocator);
 
         const node = allocator.create(Node) catch @panic("OOM");
-        // std.debug.print("KKKK\n", .{});
-        // std.debug.print("HHHHH\n", .{});
         node.* = .{ .program = prg };
-        // node.program = prg;
-        // node.statement = undefined;
-        // node.expression = undefined;
         return node;
     }
 
     pub fn deinit(self: *Program) void {
-        // for (self.errors.items) |err| {
-        //     self.allocator.free(err);
-        // }
-        // _ = self;
-        // for (self.statements.items) |item| {
-        //     switch (item) {
-        //         .left => |v| self.allocator.destroy(v),
-        //         else => {},
-        //     }
-        // }
-        // self.allocator.destroy(item);
         self.statements.deinit();
         self.allocator.destroy(self);
-        // self.errors.deinit();
-        // self.prefix_parse_fns.deinit();
-        // self.infix_parse_fns.deinit();
     }
-
-    // obj = Program{
-    //     .allocator = allocator,
-    //     .statements = std.ArrayList(Ast.Statement).init(allocator),
-    // };
-
-    // pub fn init(allocator: std.mem.Allocator) Program {
-    //     return Program{
-    //         .allocator = allocator,
-    //         .statements = std.ArrayList(Ast.Statement).init(allocator),
-    //     };
-    // }
 
     pub fn tokenLiteral(self: Program) []const u8 {
         return if (self.statements.items.len > 0) self.statements[0].tokenLiteral() else "";

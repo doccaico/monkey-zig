@@ -47,6 +47,19 @@ pub const EvalWorld = struct {
 
         // node_list
         for (node_list.items) |item| {
+            // switch (item.*) {
+            //     .statement => |v| {
+            //         switch (v.*) {
+            //             .block_statement => |bs| {
+            //                 bs.deinit();
+            //                 eval_allocator.destroy(bs);
+            //             },
+            //             else => {},
+            //         }
+            //     },
+            //     //eval_allocator.destroy(v),
+            //     else => {},
+            // }
             eval_allocator.destroy(item);
         }
         node_list.deinit();
@@ -63,6 +76,12 @@ pub fn createObject() *Object.Object {
     const obj = eval_allocator.create(Object.Object) catch @panic("OOM");
     object_list.append(obj) catch @panic("OOM");
     return obj;
+}
+
+pub fn createExpression(comptime T: type) *T {
+    const expr = eval_allocator.create(T) catch @panic("OOM");
+    // node_list.append(node) catch @panic("OOM");
+    return expr;
 }
 
 pub fn eval(node: *Ast.Node) ?*Object.Object {
@@ -128,6 +147,14 @@ pub fn eval(node: *Ast.Node) ?*Object.Object {
                 .boolean => |self| {
                     return nativeBoolToBooleanObject(self.value);
                 },
+                .if_expression => |self| {
+                    // const new_expr = createExpression(Ast.IfExpression);
+                    // // new_expr.* = Ast.IfExpression{ .if_expression = self };
+                    // new_expr.* = self;
+
+                    return evalIfExpression(self);
+                    // return evalIfExpression(new_expr);
+                },
                 else => unreachable,
             }
         },
@@ -158,15 +185,15 @@ fn evalProgram(program: *Ast.Program) ?*Object.Object {
     return result;
 }
 
-fn evalStatement(stmt: Ast.Statement) Object.Object {
-    return switch (stmt) {
-        .let_statement => |s| evalLetStatement(s),
-        .return_statement => |s| evalReturnStatement(s),
-        .block_statement => |s| evalBlockStatement(s),
-        .expression_statement => |s| evalExpressionStatement(s.expression),
-        else => unreachable,
-    };
-}
+// fn evalStatement(stmt: Ast.Statement) Object.Object {
+//     return switch (stmt) {
+//         .let_statement => |s| evalLetStatement(s),
+//         .return_statement => |s| evalReturnStatement(s),
+//         .block_statement => |s| evalBlockStatement(s),
+//         .expression_statement => |s| evalExpressionStatement(s.expression),
+//         else => unreachable,
+//     };
+// }
 
 fn evalLetStatement(ls: Ast.LetStatement) Object.Object {
     _ = ls;
@@ -178,27 +205,38 @@ fn evalReturnStatement(rs: Ast.ReturnStatement) Object.Object {
     return Object.Object{ .null = Object.Null{} };
 }
 
-fn evalBlockStatement(bs: Ast.BlockStatement) Object.Object {
-    const ret = Object.Object{ .null = Object.Null{} };
+fn evalBlockStatement(bs: *Ast.BlockStatement) *Object.Object {
+    var result: ?*Object.Object = undefined;
     for (bs.statements.items) |stmt| {
-        const evaluated = evalStatement(stmt);
-        return evaluated;
+        const new_node = createNode();
+        new_node.* = .{ .statement = stmt };
+
+        result = eval(new_node);
+
+        if (result != null) {
+            const rt = result.?.getType();
+            // if (std.mem.eql(u8, rt, Object.RETURN_VALUE_OBJ) or std.mem.eql(u8, rt, Object.ERROR_OBJ)) {}
+            if (std.mem.eql(u8, rt, Object.RETURN_VALUE_OBJ)) {
+                return result.?;
+            }
+        }
     }
-    return ret;
+
+    return result.?;
 }
 
-fn evalExpressionStatement(expr: *Ast.Expression) ?*Object.Object {
-    return switch (expr) {
+fn evalExpressionStatement(expr: *Ast.Expression) *Object.Object {
+    return switch (expr.*) {
         .integer_literal => |e| evalIntegerLiteral(e),
         .boolean => |e| evalBoolean(e),
         .prefix_expression => |e| {
-            const right = evalExpressionStatement(e.right.*);
+            const right = evalExpressionStatement(e.right);
 
-            return evalPrefixExpression(e.token.type, right);
+            return evalPrefixExpression(e.operator, right);
         },
         .infix_expression => |e| {
-            const left = evalExpressionStatement(e.left.*);
-            const right = evalExpressionStatement(e.right.*);
+            const left = evalExpressionStatement(e.left);
+            const right = evalExpressionStatement(e.right);
             return evalInfixExpression(e.operator, left, right);
         },
         .if_expression => |e| return evalIfExpression(e),
@@ -206,12 +244,19 @@ fn evalExpressionStatement(expr: *Ast.Expression) ?*Object.Object {
     };
 }
 
-fn evalIntegerLiteral(il: Ast.IntegerLiteral) Object.Object {
-    return Object.Object{ .integer = Object.Integer{ .value = il.value } };
+fn evalIntegerLiteral(il: *Ast.IntegerLiteral) *Object.Object {
+    const new_integer_obj = Object.createObjectInteger();
+    new_integer_obj.value = il.value;
+
+    const new_obj = createObject();
+    new_obj.* = Object.Object{ .integer = new_integer_obj };
+
+    return new_obj;
 }
 
-fn evalBoolean(be: Ast.BooleanExpression) Object.Object {
-    return Object.Object{ .boolean = Object.Boolean{ .value = be.value } };
+fn evalBoolean(be: *Ast.BooleanExpression) *Object.Object {
+    return nativeBoolToBooleanObject(be.value);
+    // return Object.Object{ .boolean = Object.Boolean{ .value = be.value } };
 }
 
 fn evalPrefixExpression(operator: []const u8, right: *Object.Object) *Object.Object {
@@ -333,30 +378,44 @@ fn evalIntegerInfixExpression(op: []const u8, left_val: i64, right_val: i64) *Ob
     }
 }
 
-fn evalIfExpression(ie: Ast.IfExpression) Object.Object {
-    const condition = evalExpressionStatement(ie.condition.*);
+fn evalIfExpression(ie: *Ast.IfExpression) *Object.Object {
+    // const condition = evalExpressionStatement(ie.condition.*);
+    const condition = evalExpressionStatement(ie.condition);
+
+    // std.debug.print("{}", .{condition});
 
     if (isTruthy(condition)) {
         return evalBlockStatement(ie.consequence);
     } else if (ie.alternative) |alt| {
         return evalBlockStatement(alt);
     } else {
-        return Object.Object{ .null = Object.Null{} };
+        return NULL;
     }
 }
 
-fn isTruthy(obj: Object.Object) bool {
-    return switch (obj) {
-        .null => false,
-        .boolean => |o| {
-            if (o.value) {
-                return true;
-            } else {
-                return false;
-            }
-        },
-        else => true,
-    };
+fn isTruthy(obj: *Object.Object) bool {
+    if (obj == NULL) {
+        return false;
+    }
+    if (obj == TRUE) {
+        return true;
+    }
+    if (obj == FALSE) {
+        return false;
+    }
+    return true;
+
+    // return switch (obj) {
+    //     .null => false,
+    //     .boolean => |o| {
+    //         if (o.value) {
+    //             return true;
+    //         } else {
+    //             return false;
+    //         }
+    //     },
+    //     else => true,
+    // };
 }
 
 fn nativeBoolToBooleanObject(input: bool) *Object.Object {
@@ -503,6 +562,56 @@ test "TestBangOperator" {
     }
 }
 
+pub const Types1 = union(enum) {
+    null,
+    integer: i64,
+};
+
+test "TestIfElseExpressions" {
+    const Test = struct {
+        []const u8,
+        Types1,
+    };
+
+    const tests = [_]Test{
+        .{ "if (true) { 10 }", .{ .integer = 10 } },
+        .{ "if (false) { 10 }", .{ .null = void{} } },
+        .{ "if (false) { 10 }", .{ .null = void{} } },
+        .{ "if (false) { 10 }", .{ .null = void{} } },
+
+        .{ "if (1) { 10 }", .{ .integer = 10 } },
+        .{ "if (1 < 2) { 10 }", .{ .integer = 10 } },
+        .{ "if (1 > 2) { 10 }", .{ .null = void{} } },
+        .{ "if (1 > 2) { 10 } else { 20 }", .{ .integer = 20 } },
+        .{ "if (1 < 2) { 10 } else { 20 }", .{ .integer = 10 } },
+    };
+
+    for (tests) |t| {
+        const lexer = Lexer.init(t[0]);
+        var parser = try Parser.init(std.testing.allocator, lexer);
+        defer parser.deinit();
+        var program_node = parser.parseProgram();
+        defer program_node.deinit();
+
+        checkParserErrors(parser);
+
+        EvalWorld.init(std.testing.allocator);
+        defer EvalWorld.deinit();
+
+        const obj = eval(program_node);
+
+        {
+            const expected = t[1];
+            switch (obj.?.*) {
+                .integer => |v| try std.testing.expectEqual(expected.integer, v.value),
+                .null => |_| try std.testing.expectEqual(expected.null, void{}),
+                else => unreachable,
+            }
+        }
+    }
+}
+
+// TestIfElseExpressions (ORIGINAL VERSION)
 // pub const Types1 = union(enum) {
 //     integer: anyerror!*Object.Integer,
 //     null: anyerror!*Object.Null,

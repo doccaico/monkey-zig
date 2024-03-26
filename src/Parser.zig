@@ -272,6 +272,7 @@ fn parseIdentifier(self: *Parser) *Ast.Expression {
 fn parseIntegerLiteral(self: *Parser) *Ast.Expression {
     const ilit = self.allocator.create(Ast.IntegerLiteral) catch @panic("OOM");
     ilit.token = self.cur_token;
+
     // ilit.allocator = self.allocator;
     ilit.value = std.fmt.parseInt(i64, self.cur_token.literal, 10) catch {
         return self.conversionError(self.cur_token.literal);
@@ -371,9 +372,11 @@ fn parseIfExpression(self: *Parser) *Ast.Expression {
 
     self.nextToken();
 
-    var ptr = self.allocator.create(Ast.Expression) catch @panic("OOM");
-    ptr = self.parseExpression(.lowest);
-    ie.condition = ptr;
+    // var ptr = self.allocator.create(Ast.Expression) catch @panic("OOM");
+    // ptr = self.parseExpression(.lowest);
+    // ie.condition = ptr;
+
+    ie.condition = self.parseExpression(.lowest);
 
     if (self.nextTokenIs(.rparen)) {
         self.nextToken();
@@ -402,7 +405,7 @@ fn parseIfExpression(self: *Parser) *Ast.Expression {
     }
 
     const e = self.allocator.create(Ast.Expression) catch @panic("OOM");
-    e.if_expression = ie;
+    e.* = .{ .if_expression = ie };
     return e;
 }
 

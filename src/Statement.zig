@@ -64,8 +64,12 @@ pub const ReturnStatement = struct {
 
 pub const ExpressionStatement = struct {
     token: Token,
-    allocator: std.mem.Allocator,
     expression: *Ast.Expression,
+    allocator: std.mem.Allocator,
+
+    pub fn deinit(self: *ExpressionStatement) void {
+        self.allocator.destroy(self);
+    }
 
     pub fn tokenLiteral(self: ExpressionStatement) []const u8 {
         return self.token.literal;
@@ -79,16 +83,23 @@ pub const ExpressionStatement = struct {
 pub const BlockStatement = struct {
     token: Token,
     statements: std.ArrayList(*Statement),
+    allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator, token: Token) *BlockStatement {
         const bs = allocator.create(BlockStatement) catch @panic("OOM");
         bs.token = token;
         bs.statements = std.ArrayList(*Statement).init(allocator);
+        bs.allocator = allocator;
         return bs;
     }
 
-    pub fn deinit(self: BlockStatement) void {
+    pub fn deinit(self: *BlockStatement) void {
+        // for (self.statements.items) |item| {
+        //     self.allocator.destroy(item);
+        // }
+        // self.allocator.destroy(self.statements.items[0]);
         self.statements.deinit();
+        self.allocator.destroy(self);
     }
 
     pub fn tokenLiteral(self: BlockStatement) []const u8 {
