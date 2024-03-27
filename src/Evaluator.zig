@@ -1,8 +1,9 @@
 const std = @import("std");
 
+const Environment = @import("Environment.zig");
 const Lexer = @import("Lexer.zig");
-const Parser = @import("Parser.zig");
 const Object = @import("Object.zig");
+const Parser = @import("Parser.zig");
 
 const Ast = struct {
     usingnamespace @import("Ast.zig");
@@ -21,6 +22,7 @@ allocator: std.mem.Allocator,
 node: *Ast.Node,
 object_list: std.ArrayList(*Object.Object),
 node_list: std.ArrayList(*Ast.Node),
+env: Environment,
 
 pub fn init(node: *Ast.Node) Evaluator {
     var self = Evaluator{
@@ -28,6 +30,7 @@ pub fn init(node: *Ast.Node) Evaluator {
         .node = undefined,
         .object_list = std.ArrayList(*Object.Object).init(node.program.allocator),
         .node_list = std.ArrayList(*Ast.Node).init(node.program.allocator),
+        .env = Environment.init(node.program.allocator),
     };
     // for function call (eval)
     self.prepareEval(node);
@@ -39,7 +42,7 @@ pub fn init(node: *Ast.Node) Evaluator {
     return self;
 }
 
-pub fn deinit(self: Evaluator) void {
+pub fn deinit(self: *Evaluator) void {
     for (self.object_list.items) |item| {
         switch (item.*) {
             .integer => |x| self.allocator.destroy(x),
@@ -59,6 +62,8 @@ pub fn deinit(self: Evaluator) void {
         self.allocator.destroy(item);
     }
     self.node_list.deinit();
+
+    self.env.deinit();
 }
 
 pub fn eval(self: *Evaluator) ?*Object.Object {
@@ -92,6 +97,17 @@ pub fn eval(self: *Evaluator) ?*Object.Object {
 
                     self.prepareEval(new_node);
                     return self.eval();
+                },
+                .let_statement => |y| {
+                    const new_node = self.createNode();
+                    new_node.* = Ast.Node{ .expression = y.value };
+
+                    self.prepareEval(new_node);
+                    const result = self.eval();
+                    if (isError(result)) {
+                        return result;
+                    }
+                    self.env.set(y.name.value, result.?);
                 },
                 else => unreachable,
             }
@@ -146,7 +162,13 @@ pub fn eval(self: *Evaluator) ?*Object.Object {
                 .if_expression => |y| {
                     return self.evalIfExpression(y);
                 },
-                else => unreachable,
+                .identifier => |y| {
+                    return self.evalIdentifier(y);
+                },
+                else => {
+                    std.debug.print("{?}\n", .{x});
+                },
+                // else => unreachable,
             }
         },
     }
@@ -341,6 +363,10 @@ fn evalIfExpression(self: *Evaluator, ie: *Ast.IfExpression) *Object.Object {
     } else {
         return NULL;
     }
+}
+
+fn evalIdentifier(self: *Evaluator, ident: *Ast.Identifier) *Object.Object {
+    return self.env.get(ident.value) orelse self.createError("identifier not found: {s}", .{ident.value});
 }
 
 fn prepareEval(self: *Evaluator, node: *Ast.Node) void {
@@ -685,6 +711,10 @@ test "TestErrorHandling" {
             ,
             "unknown operator: BOOLEAN + BOOLEAN",
         },
+        .{
+            "foobar",
+            "identifier not found: foobar",
+        },
     };
 
     for (tests) |t| {
@@ -705,6 +735,40 @@ test "TestErrorHandling" {
             const expected = t[1];
             const actual = result.?.@"error".message;
             try std.testing.expectEqualStrings(expected, actual);
+        }
+    }
+}
+
+test "TestLetStatements" {
+    const Test = struct {
+        []const u8,
+        i64,
+    };
+    const tests = [_]Test{
+        .{ "let a = 5; a;", 5 },
+        .{ "let a = 5 * 5; a;", 25 },
+        .{ "let a = 5; let b = a; b;", 5 },
+        .{ "let a = 5; let b = a; let c = a + b + 5; c;", 15 },
+    };
+
+    for (tests) |t| {
+        const lexer = Lexer.init(t[0]);
+        var parser = try Parser.init(std.testing.allocator, lexer);
+        defer parser.deinit();
+        var node = parser.parseProgram();
+        defer node.deinit();
+
+        checkParserErrors(parser);
+
+        var evaluator = Evaluator.init(node);
+        defer evaluator.deinit();
+
+        const result = evaluator.eval();
+
+        {
+            const expected = t[1];
+            const actual = result.?.integer.value;
+            try std.testing.expectEqual(expected, actual);
         }
     }
 }

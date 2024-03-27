@@ -16,14 +16,14 @@ pub const Object = union(enum(u8)) {
     @"error": *Error,
 
     pub fn inspect(self: Object, writer: anytype) !void {
-        return switch (self) {
-            inline else => |tag| tag.inspect(writer),
-        };
+        switch (self) {
+            inline else => |x| try x.inspect(writer),
+        }
     }
 
     pub fn getType(self: Object) ObjectType {
         return switch (self) {
-            inline else => |tag| tag.getType(),
+            inline else => |x| x.getType(),
         };
     }
 };
@@ -54,7 +54,7 @@ pub const Boolean = struct {
 
 pub const Null = struct {
     pub fn inspect(_: Null, writer: anytype) !void {
-        try writer.write("null");
+        _ = try writer.write("null");
     }
 
     pub fn getType(_: Null) ObjectType {
@@ -66,7 +66,9 @@ pub const ReturnValue = struct {
     value: *Object,
 
     pub fn inspect(self: ReturnValue, writer: anytype) !void {
-        try writer.write(self.value.inspect(writer));
+        switch (self.value.*) {
+            inline else => |x| try x.inspect(writer),
+        }
     }
 
     pub fn getType(_: ReturnValue) ObjectType {
@@ -78,7 +80,7 @@ pub const Error = struct {
     message: []const u8,
 
     pub fn inspect(self: Error, writer: anytype) !void {
-        try writer.print("ERROR: {}", .{self.message});
+        try writer.print("ERROR: {s}", .{self.message});
     }
 
     pub fn getType(_: Error) ObjectType {

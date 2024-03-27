@@ -1,7 +1,6 @@
 const builtin = @import("builtin");
 const std = @import("std");
 
-const Token = @import("Token.zig");
 const Lexer = @import("Lexer.zig");
 const Parser = @import("Parser.zig");
 const Evaluator = @import("Evaluator.zig");
@@ -51,8 +50,8 @@ pub fn start(stdin: anytype, stdout: anytype) !void {
         const lexer = Lexer.init(line);
         var parser = try Parser.init(gpa, lexer);
         defer parser.deinit();
-        var program = try parser.parseProgram();
-        defer program.deinit();
+        var node = parser.parseProgram();
+        defer node.deinit();
 
         if (parser.errors.items.len != 0) {
             try printParserErrors(stdout, parser.errors);
@@ -60,26 +59,13 @@ pub fn start(stdin: anytype, stdout: anytype) !void {
             continue;
         }
 
-        // try program.string(stdout);
-        // _ = try stdout.write("\n");
+        var evaluator = Evaluator.init(node);
+        defer evaluator.deinit();
 
-        const evaluated = Evaluator.eval(program);
-        try evaluated.inspect(stdout);
-        _ = try stdout.write("\n");
-
-        // switch (evaluated) {
-        //     .null
-        // };
-
-        // try stdout.writeAll(program.string(stdout));
-
-        // var lexer = Lexer.init(line);
-        // var tok: Token = lexer.nextToken();
-        //
-        // while (tok.type != .eof) {
-        //     try stdout.print("{?}\n", .{tok});
-        //     tok = lexer.nextToken();
-        // }
+        if (evaluator.eval()) |result| {
+            try result.inspect(stdout);
+            try stdout.writeByte('\n');
+        }
 
         input.clearRetainingCapacity();
     }
@@ -92,3 +78,25 @@ fn printParserErrors(writer: anytype, errors: std.ArrayList([]const u8)) !void {
         try writer.print("\t{s}\n", .{msg});
     }
 }
+
+// try stdout.writeAll(try result.?.inspect(stdout));
+// try stdout.writeAll(result.?.inspect(stdout));
+// _ = try stdout.write("\n");
+// try program.string(stdout);
+// _ = try stdout.write("\n");
+// try evaluated.inspect(stdout);
+// _ = try stdout.write("\n");
+
+// switch (evaluated) {
+//     .null
+// };
+
+// try stdout.writeAll(program.string(stdout));
+
+// var lexer = Lexer.init(line);
+// var tok: Token = lexer.nextToken();
+//
+// while (tok.type != .eof) {
+//     try stdout.print("{?}\n", .{tok});
+//     tok = lexer.nextToken();
+// }

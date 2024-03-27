@@ -40,7 +40,7 @@ errors: std.ArrayList([]const u8),
 prefix_parse_fns: std.AutoHashMap(TokenType, prefixParseFn),
 infix_parse_fns: std.AutoHashMap(TokenType, infixParseFn),
 
-pub fn init(allocator: std.mem.Allocator, lexer: Lexer) anyerror!Parser {
+pub fn init(allocator: std.mem.Allocator, lexer: Lexer) !Parser {
     var parser = Parser{
         .allocator = allocator,
         .lexer = lexer,
@@ -80,11 +80,11 @@ pub fn deinit(self: *Parser) void {
     self.infix_parse_fns.deinit();
 }
 
-pub fn registerPrefix(self: *Parser, token_type: TokenType, func: prefixParseFn) anyerror!void {
+pub fn registerPrefix(self: *Parser, token_type: TokenType, func: prefixParseFn) !void {
     try self.prefix_parse_fns.put(token_type, func);
 }
 
-pub fn registerInfix(self: *Parser, token_type: TokenType, func: infixParseFn) anyerror!void {
+pub fn registerInfix(self: *Parser, token_type: TokenType, func: infixParseFn) !void {
     try self.infix_parse_fns.put(token_type, func);
 }
 
