@@ -25,10 +25,12 @@ node_list: std.ArrayList(*Ast.Node),
 pub fn init(node: *Ast.Node) Evaluator {
     var self = Evaluator{
         .allocator = node.program.allocator,
-        .node = node,
+        .node = undefined,
         .object_list = std.ArrayList(*Object.Object).init(node.program.allocator),
         .node_list = std.ArrayList(*Ast.Node).init(node.program.allocator),
     };
+    // for function call (eval)
+    self.prepareEval(node);
 
     TRUE = self.createObjectBoolean(true);
     FALSE = self.createObjectBoolean(false);
@@ -40,13 +42,13 @@ pub fn init(node: *Ast.Node) Evaluator {
 pub fn deinit(self: Evaluator) void {
     for (self.object_list.items) |item| {
         switch (item.*) {
-            .integer => |v| self.allocator.destroy(v),
-            .boolean => |v| self.allocator.destroy(v),
-            .null => |v| self.allocator.destroy(v),
-            .return_value => |v| self.allocator.destroy(v),
-            .@"error" => |v| {
-                self.allocator.free(v.message);
-                self.allocator.destroy(v);
+            .integer => |x| self.allocator.destroy(x),
+            .boolean => |x| self.allocator.destroy(x),
+            .null => |x| self.allocator.destroy(x),
+            .return_value => |x| self.allocator.destroy(x),
+            .@"error" => |x| {
+                self.allocator.free(x.message);
+                self.allocator.destroy(x);
             },
         }
         self.allocator.destroy(item);
@@ -154,7 +156,7 @@ fn evalProgram(self: *Evaluator) ?*Object.Object {
         if (result == null) continue;
 
         switch (result.?.*) {
-            .return_value => |v| return v.value,
+            .return_value => |x| return x.value,
             .@"error" => return result.?,
             else => {},
         }
@@ -185,19 +187,18 @@ fn evalBlockStatement(self: *Evaluator, bs: *Ast.BlockStatement) *Object.Object 
 
 fn evalExpressionStatement(self: *Evaluator, expr: *Ast.Expression) *Object.Object {
     return switch (expr.*) {
-        .integer_literal => |e| self.evalIntegerLiteral(e),
-        .boolean => |e| nativeBoolToBooleanObject(e.value),
-        .prefix_expression => |e| {
-            const right = self.evalExpressionStatement(e.right);
-
-            return self.evalPrefixExpression(e.operator, right);
+        .integer_literal => |x| self.evalIntegerLiteral(x),
+        .boolean => |x| nativeBoolToBooleanObject(x.value),
+        .prefix_expression => |x| {
+            const right = self.evalExpressionStatement(x.right);
+            return self.evalPrefixExpression(x.operator, right);
         },
-        .infix_expression => |e| {
-            const left = self.evalExpressionStatement(e.left);
-            const right = self.evalExpressionStatement(e.right);
-            return self.evalInfixExpression(e.operator, left, right);
+        .infix_expression => |x| {
+            const left = self.evalExpressionStatement(x.left);
+            const right = self.evalExpressionStatement(x.right);
+            return self.evalInfixExpression(x.operator, left, right);
         },
-        .if_expression => |e| return self.evalIfExpression(e),
+        .if_expression => |x| return self.evalIfExpression(x),
         else => unreachable,
     };
 }

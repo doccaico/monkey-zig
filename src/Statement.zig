@@ -15,15 +15,15 @@ pub const Statement = union(enum(u8)) {
 
     pub fn tokenLiteral(self: Statement) []const u8 {
         return switch (self) {
+            inline else => |x| x.tokenLiteral(),
             .@"error" => "",
-            inline else => |tag| tag.tokenLiteral(),
         };
     }
 
     pub fn string(self: Statement, writer: anytype) !void {
         return switch (self) {
+            inline else => |x| x.string(writer),
             .@"error" => {},
-            inline else => |tag| tag.string(writer),
         };
     }
 };

@@ -38,7 +38,7 @@ pub fn start(stdin: anytype, stdout: anytype) !void {
                 input.clearRetainingCapacity();
                 break;
             },
-            else => |e| return e,
+            else => |x| return x,
         };
 
         const space = if (builtin.os.tag == .windows) " \n" else " ";

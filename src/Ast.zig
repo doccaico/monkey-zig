@@ -13,18 +13,18 @@ pub const Node = union(enum) {
     pub fn deinit(self: *Node) void {
         for (self.program.statements.items) |stmt| {
             switch (stmt.*) {
-                .expression_statement => |exprStmt| {
-                    freeExpressionPointer(self.program.allocator, exprStmt.expression);
-                    exprStmt.deinit();
+                .expression_statement => |x| {
+                    freeExpressionPointer(self.program.allocator, x.expression);
+                    x.deinit();
                 },
-                .let_statement => |letStmt| {
-                    self.program.allocator.destroy(letStmt.name);
-                    freeExpressionPointer(self.program.allocator, letStmt.value);
-                    letStmt.deinit();
+                .let_statement => |x| {
+                    self.program.allocator.destroy(x.name);
+                    freeExpressionPointer(self.program.allocator, x.value);
+                    x.deinit();
                 },
-                .return_statement => |returnStmt| {
-                    freeExpressionPointer(self.program.allocator, returnStmt.return_value);
-                    returnStmt.deinit();
+                .return_statement => |x| {
+                    freeExpressionPointer(self.program.allocator, x.return_value);
+                    x.deinit();
                 },
                 else => {},
             }
@@ -40,47 +40,47 @@ pub const Node = union(enum) {
 
     fn freeExpressionPointer(allocator: std.mem.Allocator, expr: *Ast.Expression) void {
         switch (expr.*) {
-            .prefix_expression => |prefixExpr| {
-                freeExpressionPointer(allocator, prefixExpr.right);
-                allocator.destroy(prefixExpr);
+            .prefix_expression => |x| {
+                freeExpressionPointer(allocator, x.right);
+                allocator.destroy(x);
                 allocator.destroy(expr);
             },
-            .infix_expression => |infixExpr| {
-                freeExpressionPointer(allocator, infixExpr.left);
-                freeExpressionPointer(allocator, infixExpr.right);
-                allocator.destroy(infixExpr);
+            .infix_expression => |x| {
+                freeExpressionPointer(allocator, x.left);
+                freeExpressionPointer(allocator, x.right);
+                allocator.destroy(x);
                 allocator.destroy(expr);
             },
-            .if_expression => |ifExpr| {
-                freeExpressionPointer(allocator, ifExpr.condition);
+            .if_expression => |x| {
+                freeExpressionPointer(allocator, x.condition);
 
-                for (ifExpr.consequence.statements.items) |stmt| {
+                for (x.consequence.statements.items) |stmt| {
                     switch (stmt.*) {
-                        .expression_statement => |v| {
-                            freeExpressionPointer(allocator, v.expression);
-                            v.deinit();
+                        .expression_statement => |y| {
+                            freeExpressionPointer(allocator, y.expression);
+                            y.deinit();
                         },
-                        .return_statement => |v| {
-                            freeExpressionPointer(allocator, v.return_value);
-                            v.deinit();
+                        .return_statement => |y| {
+                            freeExpressionPointer(allocator, y.return_value);
+                            y.deinit();
                         },
                         else => {},
                     }
                     allocator.destroy(stmt);
                 }
 
-                ifExpr.consequence.deinit();
+                x.consequence.deinit();
 
-                if (ifExpr.alternative) |alt| {
+                if (x.alternative) |alt| {
                     for (alt.statements.items) |stmt| {
                         switch (stmt.*) {
-                            .expression_statement => |v| {
-                                freeExpressionPointer(allocator, v.expression);
-                                v.deinit();
+                            .expression_statement => |y| {
+                                freeExpressionPointer(allocator, y.expression);
+                                y.deinit();
                             },
-                            .return_statement => |v| {
-                                freeExpressionPointer(allocator, v.return_value);
-                                v.deinit();
+                            .return_statement => |y| {
+                                freeExpressionPointer(allocator, y.return_value);
+                                y.deinit();
                             },
                             else => {},
                         }
@@ -90,47 +90,47 @@ pub const Node = union(enum) {
                     allocator.destroy(alt);
                 }
 
-                allocator.destroy(ifExpr);
+                allocator.destroy(x);
                 allocator.destroy(expr);
             },
-            .function_literal => |funcLit| {
-                for (funcLit.parameters.items) |param| {
+            .function_literal => |x| {
+                for (x.parameters.items) |param| {
                     allocator.destroy(param);
                 }
-                for (funcLit.body.statements.items) |stmt| {
+                for (x.body.statements.items) |stmt| {
                     switch (stmt.*) {
-                        .expression_statement => |v| {
-                            freeExpressionPointer(allocator, v.expression);
-                            v.deinit();
+                        .expression_statement => |y| {
+                            freeExpressionPointer(allocator, y.expression);
+                            y.deinit();
                         },
                         else => {},
                     }
                     allocator.destroy(stmt);
                 }
-                funcLit.deinit();
-                allocator.destroy(funcLit);
+                x.deinit();
+                allocator.destroy(x);
                 allocator.destroy(expr);
             },
-            .call_expression => |callExpr| {
-                freeExpressionPointer(allocator, callExpr.function);
-                for (callExpr.arguments.items) |arg| {
+            .call_expression => |x| {
+                freeExpressionPointer(allocator, x.function);
+                for (x.arguments.items) |arg| {
                     freeExpressionPointer(allocator, arg);
                 }
-                callExpr.deinit();
+                x.deinit();
 
-                allocator.destroy(callExpr);
+                allocator.destroy(x);
                 allocator.destroy(expr);
             },
-            .integer_literal => |intExpr| {
-                allocator.destroy(intExpr);
+            .integer_literal => |x| {
+                allocator.destroy(x);
                 allocator.destroy(expr);
             },
-            .boolean => |booleanExpr| {
-                allocator.destroy(booleanExpr);
+            .boolean => |x| {
+                allocator.destroy(x);
                 allocator.destroy(expr);
             },
-            .identifier => |identifierExpr| {
-                allocator.destroy(identifierExpr);
+            .identifier => |x| {
+                allocator.destroy(x);
                 allocator.destroy(expr);
             },
             else => {},
@@ -139,7 +139,7 @@ pub const Node = union(enum) {
 
     pub fn string(self: Node, writer: anytype) !void {
         switch (self) {
-            inline else => |s| try s.string(writer),
+            inline else => |x| try x.string(writer),
         }
     }
 };
@@ -170,8 +170,8 @@ pub const Program = struct {
     pub fn string(self: Program, writer: anytype) anyerror!void {
         for (self.statements.items) |stmt| {
             switch (stmt.*) {
+                inline else => |x| try x.string(writer),
                 .@"error" => {},
-                inline else => |s| try s.string(writer),
             }
         }
     }

@@ -20,14 +20,14 @@ pub const Expression = union(enum(u8)) {
     pub fn tokenLiteral(self: Expression) []const u8 {
         return switch (self) {
             .@"error" => "",
-            inline else => |tag| tag.tokenLiteral(),
+            inline else => |x| x.tokenLiteral(),
         };
     }
 
     pub fn string(self: Expression, writer: anytype) anyerror!void {
         return switch (self) {
             .@"error" => {},
-            inline else => |tag| tag.string(writer),
+            inline else => |x| x.string(writer),
         };
     }
 };
