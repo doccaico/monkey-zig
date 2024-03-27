@@ -73,10 +73,13 @@ pub fn eval(self: *Evaluator) ?*Object.Object {
                     new_node.* = Ast.Node{ .expression = y.return_value };
 
                     self.prepareEval(new_node);
-                    const result = self.eval().?;
+                    const result = self.eval();
+                    if (isError(result)) {
+                        return result;
+                    }
 
                     const new_return_value_obj = self.createObjectReturnValue();
-                    new_return_value_obj.value = result;
+                    new_return_value_obj.value = result.?;
 
                     const new_obj = self.createObject();
                     new_obj.* = Object.Object{ .return_value = new_return_value_obj };
@@ -109,9 +112,11 @@ pub fn eval(self: *Evaluator) ?*Object.Object {
                     new_right_node.* = Ast.Node{ .expression = y.right };
 
                     self.prepareEval(new_right_node);
-                    const right = self.eval().?;
-
-                    return self.evalPrefixExpression(y.operator, right);
+                    const right = self.eval();
+                    if (isError(right)) {
+                        return right;
+                    }
+                    return self.evalPrefixExpression(y.operator, right.?);
                 },
                 .infix_expression => |y| {
                     // left
@@ -119,15 +124,21 @@ pub fn eval(self: *Evaluator) ?*Object.Object {
                     new_left_node.* = Ast.Node{ .expression = y.left };
 
                     self.prepareEval(new_left_node);
-                    const left = self.eval().?;
+                    const left = self.eval();
+                    if (isError(left)) {
+                        return left;
+                    }
                     // rigth
                     const new_right_node = self.createNode();
                     new_right_node.* = Ast.Node{ .expression = y.right };
 
                     self.prepareEval(new_right_node);
-                    const right = self.eval().?;
+                    const right = self.eval();
+                    if (isError(right)) {
+                        return right;
+                    }
 
-                    return self.evalInfixExpression(y.operator, left, right);
+                    return self.evalInfixExpression(y.operator, left.?, right.?);
                 },
                 .boolean => |y| {
                     return nativeBoolToBooleanObject(y.value);
@@ -161,7 +172,6 @@ fn evalProgram(self: *Evaluator) ?*Object.Object {
             else => {},
         }
     }
-
     return result;
 }
 
@@ -181,7 +191,6 @@ fn evalBlockStatement(self: *Evaluator, bs: *Ast.BlockStatement) *Object.Object 
             }
         }
     }
-
     return result.?;
 }
 
@@ -209,7 +218,6 @@ fn evalIntegerLiteral(self: *Evaluator, il: *Ast.IntegerLiteral) *Object.Object 
 
     const new_obj = self.createObject();
     new_obj.* = Object.Object{ .integer = new_integer_obj };
-
     return new_obj;
 }
 
@@ -242,7 +250,6 @@ fn evalPrefixMinusExpression(self: *Evaluator, right: *Object.Object) *Object.Ob
 
     const new_obj = self.createObject();
     new_obj.* = Object.Object{ .integer = new_integer_obj };
-
     return new_obj;
 }
 
@@ -319,9 +326,15 @@ fn evalIntegerInfixExpression(self: *Evaluator, op: []const u8, left: *Object.Ob
 }
 
 fn evalIfExpression(self: *Evaluator, ie: *Ast.IfExpression) *Object.Object {
-    const condition = self.evalExpressionStatement(ie.condition);
+    const new_node = self.createNode();
+    new_node.* = Ast.Node{ .expression = ie.condition };
 
-    if (isTruthy(condition)) {
+    self.prepareEval(new_node);
+    const condition = self.eval();
+    if (isError(condition)) {
+        return condition.?;
+    }
+    if (isTruthy(condition.?)) {
         return self.evalBlockStatement(ie.consequence);
     } else if (ie.alternative) |alt| {
         return self.evalBlockStatement(alt);
@@ -355,13 +368,19 @@ fn nativeBoolToBooleanObject(input: bool) *Object.Object {
     }
 }
 
+fn isError(obj: ?*Object.Object) bool {
+    if (obj == null) {
+        return false;
+    }
+    return std.mem.eql(u8, obj.?.getType(), Object.ERROR_OBJ);
+}
+
 fn createObjectBoolean(self: *Evaluator, value: bool) *Object.Object {
     const new_boolean_obj = self.allocator.create(Object.Boolean) catch @panic("OOM");
     new_boolean_obj.value = value;
 
     const new_obj = self.createObject();
     new_obj.* = Object.Object{ .boolean = new_boolean_obj };
-
     return new_obj;
 }
 
@@ -370,7 +389,6 @@ fn createObjectNull(self: *Evaluator) *Object.Object {
 
     const new_obj = self.createObject();
     new_obj.* = Object.Object{ .null = new_null_obj };
-
     return new_obj;
 }
 
@@ -388,13 +406,11 @@ fn createObject(self: *Evaluator) *Object.Object {
 
 fn createObjectInteger(self: Evaluator) *Object.Integer {
     const new_obj = self.allocator.create(Object.Integer) catch @panic("OOM");
-
     return new_obj;
 }
 
 pub fn createObjectReturnValue(self: Evaluator) *Object.ReturnValue {
     const new_obj = self.allocator.create(Object.ReturnValue) catch @panic("OOM");
-
     return new_obj;
 }
 
