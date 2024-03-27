@@ -40,7 +40,7 @@ pub const Identifier = struct {
         return self.token.literal;
     }
 
-    pub fn string(self: Identifier, writer: anytype) anyerror!void {
+    pub fn string(self: Identifier, writer: anytype) !void {
         _ = try writer.write(self.value);
     }
 };
@@ -54,7 +54,7 @@ pub const IntegerLiteral = struct {
         return self.token.literal;
     }
 
-    pub fn string(self: IntegerLiteral, writer: anytype) anyerror!void {
+    pub fn string(self: IntegerLiteral, writer: anytype) !void {
         _ = try writer.write(self.token.literal);
     }
 };
@@ -68,7 +68,7 @@ pub const PrefixExpression = struct {
         return self.token.literal;
     }
 
-    pub fn string(self: PrefixExpression, writer: anytype) anyerror!void {
+    pub fn string(self: PrefixExpression, writer: anytype) !void {
         _ = try writer.write("(");
         _ = try writer.write(self.operator);
         try self.right.string(writer);
@@ -86,7 +86,7 @@ pub const InfixExpression = struct {
         return self.token.literal;
     }
 
-    pub fn string(self: InfixExpression, writer: anytype) anyerror!void {
+    pub fn string(self: InfixExpression, writer: anytype) !void {
         _ = try writer.write("(");
         try self.left.string(writer);
         try writer.print(" {s} ", .{self.operator});
@@ -103,7 +103,7 @@ pub const BooleanExpression = struct {
         return self.token.literal;
     }
 
-    pub fn string(self: BooleanExpression, writer: anytype) anyerror!void {
+    pub fn string(self: BooleanExpression, writer: anytype) !void {
         _ = try writer.write(self.token.literal);
     }
 };
@@ -118,7 +118,7 @@ pub const IfExpression = struct {
         return self.token.literal;
     }
 
-    pub fn string(self: IfExpression, writer: anytype) anyerror!void {
+    pub fn string(self: IfExpression, writer: anytype) !void {
         _ = try writer.write("if");
         try self.condition.string(writer);
         _ = try writer.write(" ");
@@ -153,7 +153,7 @@ pub const FunctionLiteral = struct {
         return self.token.literal;
     }
 
-    pub fn string(self: FunctionLiteral, writer: anytype) anyerror!void {
+    pub fn string(self: FunctionLiteral, writer: anytype) !void {
         _ = try writer.write(self.tokenLiteral());
         _ = try writer.write("(");
         const size = self.parameters.items.len;

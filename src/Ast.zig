@@ -1,8 +1,5 @@
 const std = @import("std");
 
-const Parser = @import("Parser.zig");
-const Evaluator = @import("Evaluator.zig");
-
 const Ast = struct {
     usingnamespace @import("Expression.zig");
     usingnamespace @import("Statement.zig");
@@ -35,6 +32,7 @@ pub const Node = union(enum) {
             self.program.allocator.destroy(stmt);
         }
         self.program.statements.deinit();
+
         const allocator = self.program.allocator;
         allocator.destroy(self.program);
         allocator.destroy(self);
@@ -135,9 +133,6 @@ pub const Node = union(enum) {
                 allocator.destroy(identifierExpr);
                 allocator.destroy(expr);
             },
-            // .expression_statement => |_| {
-            //     std.debug.print(">>>>>>>>>>>>>>>>>>>>>>>>>>   \n", .{});
-            // },
             else => {},
         }
     }
@@ -159,7 +154,7 @@ pub const Program = struct {
         prg.statements = std.ArrayList(*Ast.Statement).init(allocator);
 
         const node = allocator.create(Node) catch @panic("OOM");
-        node.* = .{ .program = prg };
+        node.* = Node{ .program = prg };
         return node;
     }
 
@@ -209,13 +204,13 @@ test "TestString" {
     const expr = try allocator.create(Ast.Expression);
     defer allocator.destroy(expr);
 
-    expr.* = .{ .identifier = ident2 };
+    expr.* = Ast.Expression{ .identifier = ident2 };
 
     let_stmt.token = Token{ .type = .let, .literal = "let" };
     let_stmt.name = ident1;
     let_stmt.value = expr;
 
-    stmt.* = .{ .let_statement = let_stmt };
+    stmt.* = Ast.Statement{ .let_statement = let_stmt };
 
     try statements.append(stmt);
 

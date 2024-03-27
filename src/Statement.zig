@@ -20,7 +20,7 @@ pub const Statement = union(enum(u8)) {
         };
     }
 
-    pub fn string(self: Statement, writer: anytype) anyerror!void {
+    pub fn string(self: Statement, writer: anytype) !void {
         return switch (self) {
             .@"error" => {},
             inline else => |tag| tag.string(writer),
@@ -124,10 +124,6 @@ pub const BlockStatement = struct {
     }
 
     pub fn deinit(self: *BlockStatement) void {
-        // for (self.statements.items) |item| {
-        //     self.allocator.destroy(item);
-        // }
-        // self.allocator.destroy(self.statements.items[0]);
         self.statements.deinit();
         self.allocator.destroy(self);
     }

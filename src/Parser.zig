@@ -3,6 +3,7 @@ const std = @import("std");
 const Token = @import("Token.zig");
 const TokenType = Token.TokenType;
 const Lexer = @import("Lexer.zig");
+
 const Ast = struct {
     usingnamespace @import("Ast.zig");
     usingnamespace @import("Expression.zig");
@@ -28,8 +29,6 @@ const OperatorPrecedence = enum(u8) {
     call, // foo(x)
 };
 
-// const prefixParseFn = *const fn (*Parser) anyerror!Ast.Expression;
-// const infixParseFn = *const fn (*Parser, *Ast.Expression) anyerror!Ast.Expression;
 const prefixParseFn = *const fn (*Parser) *Ast.Expression;
 const infixParseFn = *const fn (*Parser, *Ast.Expression) *Ast.Expression;
 
@@ -130,18 +129,13 @@ pub fn parseProgram(self: *Parser) *Ast.Node {
 
     while (!self.curTokenIs(.eof)) {
         const stmt = self.parseStatement();
-        // try program.statements.append(stmt);
-
-        // std.debug.print("parser has {} errors\n", .{stmt});
         node.program.statements.append(stmt) catch @panic("OOM");
         self.nextToken();
-        // std.debug.print("len: {d}\n", .{node.program.statements.items.len});
     }
 
     return node;
 }
 
-// fn parseStatement(self: *Parser) anyerror!*Ast.Statement {
 fn parseStatement(self: *Parser) *Ast.Statement {
     return switch (self.cur_token.type) {
         .let => self.parseLetStatement(),
@@ -153,27 +147,17 @@ fn parseStatement(self: *Parser) *Ast.Statement {
 fn parseLetStatement(self: *Parser) *Ast.Statement {
     const ls = Ast.LetStatement.init(self.allocator, self.cur_token);
 
-    // const ls = self.allocator.create(Ast.LetStatement) catch @panic("OOM");
-    // ls.token = self.cur_token;
-    // var ls = Ast.LetStatement{
-    //     .token = self.cur_token,
-    //     .name = undefined,
-    //     .value = undefined,
-    // };
-
     if (self.nextTokenIs(.ident)) {
         self.nextToken();
     } else {
         return self.peekStatementError(.ident);
     }
+
     const name = self.allocator.create(Ast.Identifier) catch @panic("OOM");
     name.token = self.cur_token;
     name.value = self.cur_token.literal;
+
     ls.name = name;
-    // ls.name = Ast.Identifier{
-    //     .token = self.cur_token,
-    //     .value = self.cur_token.literal,
-    // };
 
     if (self.nextTokenIs(.assign)) {
         self.nextToken();
@@ -189,11 +173,8 @@ fn parseLetStatement(self: *Parser) *Ast.Statement {
         self.nextToken();
     }
 
-    // const s = self.allocator.create(Ast.Statement) catch @panic("OOM");
-    // s.let_statement = ls;
-
     const s = self.allocator.create(Ast.Statement) catch @panic("OOM");
-    s.* = .{ .let_statement = ls };
+    s.* = Ast.Statement{ .let_statement = ls };
     return s;
 }
 
@@ -209,7 +190,7 @@ fn parseReturnStatement(self: *Parser) *Ast.Statement {
     }
 
     const s = self.allocator.create(Ast.Statement) catch @panic("OOM");
-    s.* = .{ .return_statement = rs };
+    s.* = Ast.Statement{ .return_statement = rs };
     return s;
 }
 
@@ -222,7 +203,7 @@ fn parseExpressionStatement(self: *Parser) *Ast.Statement {
     }
 
     const s = self.allocator.create(Ast.Statement) catch @panic("OOM");
-    s.* = .{ .expression_statement = es };
+    s.* = Ast.Statement{ .expression_statement = es };
     return s;
 }
 
@@ -238,13 +219,6 @@ fn parseExpression(self: *Parser, precedence: OperatorPrecedence) *Ast.Expressio
         };
 
         self.nextToken();
-
-        // var ptr = self.allocator.create(Ast.Expression) catch @panic("OOM");
-        // ptr = leftExpr;
-
-        // var ptr = self.allocator.create(Ast.Expression) catch @panic("OOM");
-        // ptr = leftExpr;
-
         leftExpr = infixFn(self, leftExpr);
     }
 
@@ -252,12 +226,12 @@ fn parseExpression(self: *Parser, precedence: OperatorPrecedence) *Ast.Expressio
 }
 
 fn parseIdentifier(self: *Parser) *Ast.Expression {
-    const i = self.allocator.create(Ast.Identifier) catch @panic("OOM");
-    i.token = self.cur_token;
-    i.value = self.cur_token.literal;
+    const ident = self.allocator.create(Ast.Identifier) catch @panic("OOM");
+    ident.token = self.cur_token;
+    ident.value = self.cur_token.literal;
 
     const e = self.allocator.create(Ast.Expression) catch @panic("OOM");
-    e.* = .{ .identifier = i };
+    e.* = Ast.Expression{ .identifier = ident };
     return e;
 }
 
@@ -265,13 +239,12 @@ fn parseIntegerLiteral(self: *Parser) *Ast.Expression {
     const ilit = self.allocator.create(Ast.IntegerLiteral) catch @panic("OOM");
     ilit.token = self.cur_token;
 
-    // ilit.allocator = self.allocator;
     ilit.value = std.fmt.parseInt(i64, self.cur_token.literal, 10) catch {
         return self.conversionError(self.cur_token.literal);
     };
 
     const e = self.allocator.create(Ast.Expression) catch @panic("OOM");
-    e.* = .{ .integer_literal = ilit };
+    e.* = Ast.Expression{ .integer_literal = ilit };
     return e;
 }
 
@@ -285,20 +258,8 @@ fn parsePrefixExpression(self: *Parser) *Ast.Expression {
     pe.right = self.parseExpression(.prefix);
 
     const e = self.allocator.create(Ast.Expression) catch @panic("OOM");
-    e.* = .{ .prefix_expression = pe };
+    e.* = Ast.Expression{ .prefix_expression = pe };
     return e;
-
-    // e.prefix_expression = pe;
-    // return pe;
-    //     Ast.Expression{
-    //     .prefix_expression = pe,
-    // };
-
-    // const e = self.allocator.create(Ast.Expression) catch @panic("OOM");
-    // // e.integer_literal = ilit;
-    // e.* = .{ .integer_literal = ilit };
-    // return e;
-
 }
 
 fn parseInfixExpression(self: *Parser, left: *Ast.Expression) *Ast.Expression {
@@ -306,7 +267,6 @@ fn parseInfixExpression(self: *Parser, left: *Ast.Expression) *Ast.Expression {
     ie.token = self.cur_token;
     ie.operator = self.cur_token.literal;
     ie.left = left;
-    ie.right = undefined;
 
     const precedence = self.curPrecedence();
 
@@ -315,7 +275,7 @@ fn parseInfixExpression(self: *Parser, left: *Ast.Expression) *Ast.Expression {
     ie.right = self.parseExpression(precedence);
 
     const e = self.allocator.create(Ast.Expression) catch @panic("OOM");
-    e.* = .{ .infix_expression = ie };
+    e.* = Ast.Expression{ .infix_expression = ie };
     return e;
 }
 
@@ -325,12 +285,8 @@ fn parseBooleanExpression(self: *Parser) *Ast.Expression {
     b.value = self.curTokenIs(.true);
 
     const e = self.allocator.create(Ast.Expression) catch @panic("OOM");
-    e.* = .{ .boolean = b };
+    e.* = Ast.Expression{ .boolean = b };
     return e;
-    // return Ast.Expression{
-    //     .boolean = Ast.BooleanExpression{
-    //     },
-    // };
 }
 
 fn parseGroupedExpression(self: *Parser) *Ast.Expression {
@@ -359,10 +315,6 @@ fn parseIfExpression(self: *Parser) *Ast.Expression {
     }
 
     self.nextToken();
-
-    // var ptr = self.allocator.create(Ast.Expression) catch @panic("OOM");
-    // ptr = self.parseExpression(.lowest);
-    // ie.condition = ptr;
 
     ie.condition = self.parseExpression(.lowest);
 
@@ -393,7 +345,7 @@ fn parseIfExpression(self: *Parser) *Ast.Expression {
     }
 
     const e = self.allocator.create(Ast.Expression) catch @panic("OOM");
-    e.* = .{ .if_expression = ie };
+    e.* = Ast.Expression{ .if_expression = ie };
     return e;
 }
 
@@ -429,17 +381,8 @@ fn parseFunctionLiteral(self: *Parser) *Ast.Expression {
     fl.body = self.parseBlockStatement();
 
     const e = self.allocator.create(Ast.Expression) catch @panic("OOM");
-    e.* = .{ .function_literal = fl };
+    e.* = Ast.Expression{ .function_literal = fl };
     return e;
-
-    // const e = self.allocator.create(Ast.Expression) catch @panic("OOM");
-    // e.function_literal = fl;
-    //
-    // return e;
-
-    // return Ast.Expression{
-    //     .function_literal = fl,
-    // };
 }
 
 fn parseFunctionParameters(self: *Parser, params: *std.ArrayList(*Ast.Identifier)) void {
@@ -455,12 +398,6 @@ fn parseFunctionParameters(self: *Parser, params: *std.ArrayList(*Ast.Identifier
     ident1.value = self.cur_token.literal;
     params.append(ident1) catch @panic("OOM");
 
-    // var ident = Ast.Identifier{
-    //     .token = self.cur_token,
-    //     .value = self.cur_token.literal,
-    // };
-    // params.append(ident) catch @panic("OOM");
-
     while (self.nextTokenIs(.comma)) {
         self.nextToken();
         self.nextToken();
@@ -469,12 +406,6 @@ fn parseFunctionParameters(self: *Parser, params: *std.ArrayList(*Ast.Identifier
         ident2.token = self.cur_token;
         ident2.value = self.cur_token.literal;
         params.append(ident2) catch @panic("OOM");
-
-        // ident = Ast.Identifier{
-        //     .token = self.cur_token,
-        //     .value = self.cur_token.literal,
-        // };
-        // params.append(ident) catch @panic("OOM");
     }
 
     if (self.nextTokenIs(.rparen)) {
@@ -521,6 +452,7 @@ fn parseCallArguments(self: *Parser, args: *std.ArrayList(*Ast.Expression)) void
     if (self.nextTokenIs(.rparen)) {
         self.nextToken();
     } else {
+        // what is this ??
         _ = self.peekExpressionError(.rparen);
     }
 }
@@ -532,23 +464,18 @@ fn peekStatementError(self: *Parser, expected: TokenType) *Ast.Statement {
     const msg = std.fmt.allocPrint(self.allocator, fmt, .{ expected, self.next_token.type }) catch @panic("OOM");
     self.errors.append(msg) catch @panic("OOM");
 
-    const e = self.allocator.create(Ast.Statement) catch @panic("OOM");
-    e.* = .{ .@"error" = ParserError.UnexpectedToken };
-    return e;
-
-    // const e = self.allocator.create(Ast.Statement) catch @panic("OOM");
-    // e.@"error" = ParserError.UnexpectedToken;
-    // return e;
+    const s = self.allocator.create(Ast.Statement) catch @panic("OOM");
+    s.* = Ast.Statement{ .@"error" = ParserError.UnexpectedToken };
+    return s;
 }
 
 fn peekExpressionError(self: *Parser, expected: TokenType) *Ast.Expression {
     const fmt = "expected next token to be {any}, got {any} instead";
     const msg = std.fmt.allocPrint(self.allocator, fmt, .{ expected, self.next_token.type }) catch @panic("OOM");
     self.errors.append(msg) catch @panic("OOM");
-    // return Ast.Expression{ .@"error" = ParserError.UnexpectedToken };
 
     const e = self.allocator.create(Ast.Expression) catch @panic("OOM");
-    e.@"error" = ParserError.UnexpectedToken;
+    e.* = Ast.Expression{ .@"error" = ParserError.UnexpectedToken };
     return e;
 }
 
@@ -556,10 +483,9 @@ fn noPrefixParseFnError(self: *Parser, token_type: TokenType) *Ast.Expression {
     const fmt = "no prefix parse function for {any} found";
     const msg = std.fmt.allocPrint(self.allocator, fmt, .{token_type}) catch @panic("OOM");
     self.errors.append(msg) catch @panic("OOM");
-    // return Ast.Expression{ .@"error" = ParserError.NoPrefixParseFunction };
 
     const e = self.allocator.create(Ast.Expression) catch @panic("OOM");
-    e.@"error" = ParserError.NoPrefixParseFunction;
+    e.* = Ast.Expression{ .@"error" = ParserError.NoPrefixParseFunction };
     return e;
 }
 
@@ -569,7 +495,7 @@ fn conversionError(self: *Parser, literal: []const u8) *Ast.Expression {
     self.errors.append(msg) catch @panic("OOM");
 
     const e = self.allocator.create(Ast.Expression) catch @panic("OOM");
-    e.@"error" = ParserError.ConversionFailed;
+    e.* = Ast.Expression{ .@"error" = ParserError.ConversionFailed };
     return e;
 }
 
@@ -592,7 +518,6 @@ test "TestLetStatement" {
         \\let y = 10;
         \\let foobar = 838383;
     ;
-
     const expected_idents = [_][]const u8{
         "x",
         "y",
