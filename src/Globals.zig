@@ -4,13 +4,13 @@ const Ast = @import("Ast.zig");
 const Object = @import("Object.zig");
 
 var allocator: std.mem.Allocator = undefined;
-pub var object_list: std.ArrayList(*Object.Object) = undefined;
 pub var node_list: std.ArrayList(*Ast.Node) = undefined;
+pub var object_list: std.ArrayList(*Object.Object) = undefined;
 
 pub fn init(global_allocator: std.mem.Allocator) void {
     allocator = global_allocator;
-    object_list = std.ArrayList(*Object.Object).init(allocator);
     node_list = std.ArrayList(*Ast.Node).init(allocator);
+    object_list = std.ArrayList(*Object.Object).init(allocator);
 }
 
 pub fn deinit() void {
