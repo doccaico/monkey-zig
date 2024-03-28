@@ -11,31 +11,36 @@ pub const Node = union(enum) {
     expression: *Ast.Expression,
 
     pub fn deinit(self: *Node) void {
-        for (self.program.statements.items) |stmt| {
-            switch (stmt.*) {
-                .expression_statement => |x| {
-                    freeExpressionPointer(self.program.allocator, x.expression);
-                    x.deinit();
-                },
-                .let_statement => |x| {
-                    self.program.allocator.destroy(x.name);
-                    freeExpressionPointer(self.program.allocator, x.value);
-                    x.deinit();
-                },
-                .return_statement => |x| {
-                    freeExpressionPointer(self.program.allocator, x.return_value);
-                    x.deinit();
-                },
-                else => {},
-            }
+        switch (self.*) {
+            .program => |x| {
+                for (x.statements.items) |stmt| {
+                    switch (stmt.*) {
+                        .expression_statement => |y| {
+                            freeExpressionPointer(x.allocator, y.expression);
+                            y.deinit();
+                        },
+                        .let_statement => |y| {
+                            self.program.allocator.destroy(y.name);
+                            freeExpressionPointer(x.allocator, y.value);
+                            y.deinit();
+                        },
+                        .return_statement => |y| {
+                            freeExpressionPointer(x.allocator, y.return_value);
+                            y.deinit();
+                        },
+                        else => {},
+                    }
 
-            self.program.allocator.destroy(stmt);
+                    self.program.allocator.destroy(stmt);
+                }
+                x.statements.deinit();
+                const z = x.allocator;
+                z.destroy(self.program);
+                z.destroy(self);
+            },
+            .statement => {},
+            .expression => {},
         }
-        self.program.statements.deinit();
-
-        const allocator = self.program.allocator;
-        allocator.destroy(self.program);
-        allocator.destroy(self);
     }
 
     fn freeExpressionPointer(allocator: std.mem.Allocator, expr: *Ast.Expression) void {

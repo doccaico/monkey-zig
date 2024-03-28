@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const Environment = @import("Environment.zig");
+const Globals = @import("Globals.zig");
 const Lexer = @import("Lexer.zig");
 const Object = @import("Object.zig");
 const Parser = @import("Parser.zig");
@@ -12,64 +13,21 @@ const Ast = struct {
 };
 
 const Evaluator = @This();
+
 const checkParserErrors = Parser.checkParserErrors;
 
-var TRUE: *Object.Object = undefined;
-var FALSE: *Object.Object = undefined;
-var NULL: *Object.Object = undefined;
-
 allocator: std.mem.Allocator,
-node: *Ast.Node,
-object_list: std.ArrayList(*Object.Object),
-node_list: std.ArrayList(*Ast.Node),
-env: Environment,
 
-pub fn init(node: *Ast.Node) Evaluator {
-    var self = Evaluator{
-        .allocator = node.program.allocator,
-        .node = undefined,
-        .object_list = std.ArrayList(*Object.Object).init(node.program.allocator),
-        .node_list = std.ArrayList(*Ast.Node).init(node.program.allocator),
-        .env = Environment.init(node.program.allocator),
+pub fn init(allocator: std.mem.Allocator) Evaluator {
+    return Evaluator{
+        .allocator = allocator,
     };
-    // for function call (eval)
-    self.prepareEval(node);
-
-    TRUE = self.createObjectBoolean(true);
-    FALSE = self.createObjectBoolean(false);
-    NULL = self.createObjectNull();
-
-    return self;
 }
 
-pub fn deinit(self: *Evaluator) void {
-    for (self.object_list.items) |item| {
-        switch (item.*) {
-            .integer => |x| self.allocator.destroy(x),
-            .boolean => |x| self.allocator.destroy(x),
-            .null => |x| self.allocator.destroy(x),
-            .return_value => |x| self.allocator.destroy(x),
-            .@"error" => |x| {
-                self.allocator.free(x.message);
-                self.allocator.destroy(x);
-            },
-        }
-        self.allocator.destroy(item);
-    }
-    self.object_list.deinit();
-
-    for (self.node_list.items) |item| {
-        self.allocator.destroy(item);
-    }
-    self.node_list.deinit();
-
-    self.env.deinit();
-}
-
-pub fn eval(self: *Evaluator) ?*Object.Object {
-    switch (self.node.*) {
+pub fn eval(self: *Evaluator, node: *Ast.Node, env: *Environment) ?*Object.Object {
+    switch (node.*) {
         .program => {
-            return self.evalProgram();
+            return self.evalProgram(node, env);
         },
         .statement => |x| {
             switch (x.*) {
@@ -77,8 +35,7 @@ pub fn eval(self: *Evaluator) ?*Object.Object {
                     const new_node = self.createNode();
                     new_node.* = Ast.Node{ .expression = y.return_value };
 
-                    self.prepareEval(new_node);
-                    const result = self.eval();
+                    const result = self.eval(new_node, env);
                     if (isError(result)) {
                         return result;
                     }
@@ -95,19 +52,17 @@ pub fn eval(self: *Evaluator) ?*Object.Object {
                     const new_node = self.createNode();
                     new_node.* = Ast.Node{ .expression = y.expression };
 
-                    self.prepareEval(new_node);
-                    return self.eval();
+                    return self.eval(new_node, env);
                 },
                 .let_statement => |y| {
                     const new_node = self.createNode();
                     new_node.* = Ast.Node{ .expression = y.value };
 
-                    self.prepareEval(new_node);
-                    const result = self.eval();
+                    const result = self.eval(new_node, env);
                     if (isError(result)) {
                         return result;
                     }
-                    self.env.set(y.name.value, result.?);
+                    env.set(y.name.value, result.?);
                 },
                 else => unreachable,
             }
@@ -127,8 +82,7 @@ pub fn eval(self: *Evaluator) ?*Object.Object {
                     const new_right_node = self.createNode();
                     new_right_node.* = Ast.Node{ .expression = y.right };
 
-                    self.prepareEval(new_right_node);
-                    const right = self.eval();
+                    const right = self.eval(new_right_node, env);
                     if (isError(right)) {
                         return right;
                     }
@@ -139,8 +93,7 @@ pub fn eval(self: *Evaluator) ?*Object.Object {
                     const new_left_node = self.createNode();
                     new_left_node.* = Ast.Node{ .expression = y.left };
 
-                    self.prepareEval(new_left_node);
-                    const left = self.eval();
+                    const left = self.eval(new_left_node, env);
                     if (isError(left)) {
                         return left;
                     }
@@ -148,8 +101,7 @@ pub fn eval(self: *Evaluator) ?*Object.Object {
                     const new_right_node = self.createNode();
                     new_right_node.* = Ast.Node{ .expression = y.right };
 
-                    self.prepareEval(new_right_node);
-                    const right = self.eval();
+                    const right = self.eval(new_right_node, env);
                     if (isError(right)) {
                         return right;
                     }
@@ -160,14 +112,12 @@ pub fn eval(self: *Evaluator) ?*Object.Object {
                     return nativeBoolToBooleanObject(y.value);
                 },
                 .if_expression => |y| {
-                    return self.evalIfExpression(y);
+                    return self.evalIfExpression(y, env);
                 },
                 .identifier => |y| {
-                    return self.evalIdentifier(y);
+                    return self.evalIdentifier(y, env);
                 },
-                else => {
-                    std.debug.print("{?}\n", .{x});
-                },
+                else => {},
                 // else => unreachable,
             }
         },
@@ -176,15 +126,14 @@ pub fn eval(self: *Evaluator) ?*Object.Object {
     return null;
 }
 
-fn evalProgram(self: *Evaluator) ?*Object.Object {
+fn evalProgram(self: *Evaluator, node: *Ast.Node, env: *Environment) ?*Object.Object {
     var result: ?*Object.Object = null;
 
-    for (self.node.program.statements.items) |stmt| {
+    for (node.program.statements.items) |stmt| {
         const new_node = self.createNode();
-        new_node.* = .{ .statement = stmt };
+        new_node.* = Ast.Node{ .statement = stmt };
 
-        self.prepareEval(new_node);
-        result = self.eval();
+        result = self.eval(new_node, env);
 
         if (result == null) continue;
 
@@ -197,14 +146,13 @@ fn evalProgram(self: *Evaluator) ?*Object.Object {
     return result;
 }
 
-fn evalBlockStatement(self: *Evaluator, bs: *Ast.BlockStatement) *Object.Object {
+fn evalBlockStatement(self: *Evaluator, bs: *Ast.BlockStatement, env: *Environment) *Object.Object {
     var result: ?*Object.Object = undefined;
     for (bs.statements.items) |stmt| {
         const new_node = self.createNode();
         new_node.* = .{ .statement = stmt };
 
-        self.prepareEval(new_node);
-        result = self.eval();
+        result = self.eval(new_node, env);
 
         if (result) |r| {
             const rt = r.getType();
@@ -214,24 +162,6 @@ fn evalBlockStatement(self: *Evaluator, bs: *Ast.BlockStatement) *Object.Object 
         }
     }
     return result.?;
-}
-
-fn evalExpressionStatement(self: *Evaluator, expr: *Ast.Expression) *Object.Object {
-    return switch (expr.*) {
-        .integer_literal => |x| self.evalIntegerLiteral(x),
-        .boolean => |x| nativeBoolToBooleanObject(x.value),
-        .prefix_expression => |x| {
-            const right = self.evalExpressionStatement(x.right);
-            return self.evalPrefixExpression(x.operator, right);
-        },
-        .infix_expression => |x| {
-            const left = self.evalExpressionStatement(x.left);
-            const right = self.evalExpressionStatement(x.right);
-            return self.evalInfixExpression(x.operator, left, right);
-        },
-        .if_expression => |x| return self.evalIfExpression(x),
-        else => unreachable,
-    };
 }
 
 fn evalIntegerLiteral(self: *Evaluator, il: *Ast.IntegerLiteral) *Object.Object {
@@ -254,10 +184,10 @@ fn evalPrefixExpression(self: *Evaluator, operator: []const u8, right: *Object.O
 }
 
 fn evalPrefixBangExpression(right: *Object.Object) *Object.Object {
-    if (right == TRUE) return FALSE;
-    if (right == FALSE) return TRUE;
-    if (right == NULL) return TRUE;
-    return FALSE;
+    if (right == Globals.TRUE) return Globals.FALSE;
+    if (right == Globals.FALSE) return Globals.TRUE;
+    if (right == Globals.NULL) return Globals.TRUE;
+    return Globals.FALSE;
 }
 
 fn evalPrefixMinusExpression(self: *Evaluator, right: *Object.Object) *Object.Object {
@@ -347,40 +277,35 @@ fn evalIntegerInfixExpression(self: *Evaluator, op: []const u8, left: *Object.Ob
     }
 }
 
-fn evalIfExpression(self: *Evaluator, ie: *Ast.IfExpression) *Object.Object {
+fn evalIfExpression(self: *Evaluator, ie: *Ast.IfExpression, env: *Environment) *Object.Object {
     const new_node = self.createNode();
     new_node.* = Ast.Node{ .expression = ie.condition };
 
-    self.prepareEval(new_node);
-    const condition = self.eval();
+    const condition = self.eval(new_node, env);
     if (isError(condition)) {
         return condition.?;
     }
     if (isTruthy(condition.?)) {
-        return self.evalBlockStatement(ie.consequence);
+        return self.evalBlockStatement(ie.consequence, env);
     } else if (ie.alternative) |alt| {
-        return self.evalBlockStatement(alt);
+        return self.evalBlockStatement(alt, env);
     } else {
-        return NULL;
+        return Globals.NULL;
     }
 }
 
-fn evalIdentifier(self: *Evaluator, ident: *Ast.Identifier) *Object.Object {
-    return self.env.get(ident.value) orelse self.createError("identifier not found: {s}", .{ident.value});
-}
-
-fn prepareEval(self: *Evaluator, node: *Ast.Node) void {
-    self.node = node;
+fn evalIdentifier(self: *Evaluator, ident: *Ast.Identifier, env: *Environment) *Object.Object {
+    return env.get(ident.value) orelse self.createError("identifier not found: {s}", .{ident.value});
 }
 
 fn isTruthy(obj: *Object.Object) bool {
-    if (obj == NULL) {
+    if (obj == Globals.NULL) {
         return false;
     }
-    if (obj == TRUE) {
+    if (obj == Globals.TRUE) {
         return true;
     }
-    if (obj == FALSE) {
+    if (obj == Globals.FALSE) {
         return false;
     }
     return true;
@@ -388,9 +313,9 @@ fn isTruthy(obj: *Object.Object) bool {
 
 fn nativeBoolToBooleanObject(input: bool) *Object.Object {
     if (input) {
-        return TRUE;
+        return Globals.TRUE;
     } else {
-        return FALSE;
+        return Globals.FALSE;
     }
 }
 
@@ -401,32 +326,15 @@ fn isError(obj: ?*Object.Object) bool {
     return std.mem.eql(u8, obj.?.getType(), Object.ERROR_OBJ);
 }
 
-fn createObjectBoolean(self: *Evaluator, value: bool) *Object.Object {
-    const new_boolean_obj = self.allocator.create(Object.Boolean) catch @panic("OOM");
-    new_boolean_obj.value = value;
-
-    const new_obj = self.createObject();
-    new_obj.* = Object.Object{ .boolean = new_boolean_obj };
-    return new_obj;
-}
-
-fn createObjectNull(self: *Evaluator) *Object.Object {
-    const new_null_obj = self.allocator.create(Object.Null) catch @panic("OOM");
-
-    const new_obj = self.createObject();
-    new_obj.* = Object.Object{ .null = new_null_obj };
-    return new_obj;
-}
-
 fn createNode(self: *Evaluator) *Ast.Node {
     const new_node = self.allocator.create(Ast.Node) catch @panic("OOM");
-    self.node_list.append(new_node) catch @panic("OOM");
+    Globals.nodeAppend(new_node);
     return new_node;
 }
 
 fn createObject(self: *Evaluator) *Object.Object {
     const new_obj = self.allocator.create(Object.Object) catch @panic("OOM");
-    self.object_list.append(new_obj) catch @panic("OOM");
+    Globals.objectAppend(new_obj);
     return new_obj;
 }
 
@@ -435,7 +343,7 @@ fn createObjectInteger(self: Evaluator) *Object.Integer {
     return new_obj;
 }
 
-pub fn createObjectReturnValue(self: Evaluator) *Object.ReturnValue {
+fn createObjectReturnValue(self: Evaluator) *Object.ReturnValue {
     const new_obj = self.allocator.create(Object.ReturnValue) catch @panic("OOM");
     return new_obj;
 }
@@ -479,6 +387,12 @@ test "TestEvalIntegerExpression" {
         .{ "(5 + 10 * 2 + 15 / 3) * 2 + -10", 50 },
     };
 
+    Globals.init(std.testing.allocator);
+    defer Globals.deinit();
+
+    var env = Environment.init(std.testing.allocator);
+    defer env.deinit();
+
     for (tests) |t| {
         const lexer = Lexer.init(t[0]);
         var parser = try Parser.init(std.testing.allocator, lexer);
@@ -488,10 +402,9 @@ test "TestEvalIntegerExpression" {
 
         checkParserErrors(parser);
 
-        var evaluator = Evaluator.init(node);
-        defer evaluator.deinit();
+        var evaluator = Evaluator.init(std.testing.allocator);
 
-        const result = evaluator.eval();
+        const result = evaluator.eval(node, &env);
 
         {
             const expected = t[1];
@@ -530,6 +443,12 @@ test "TestEvalBooleanExpression" {
         .{ "(1 > 2) == false", true },
     };
 
+    Globals.init(std.testing.allocator);
+    defer Globals.deinit();
+
+    var env = Environment.init(std.testing.allocator);
+    defer env.deinit();
+
     for (tests) |t| {
         const lexer = Lexer.init(t[0]);
         var parser = try Parser.init(std.testing.allocator, lexer);
@@ -539,10 +458,9 @@ test "TestEvalBooleanExpression" {
 
         checkParserErrors(parser);
 
-        var evaluator = Evaluator.init(node);
-        defer evaluator.deinit();
+        var evaluator = Evaluator.init(std.testing.allocator);
 
-        const result = evaluator.eval();
+        const result = evaluator.eval(node, &env);
 
         {
             const expected = t[1];
@@ -566,6 +484,12 @@ test "TestBangOperator" {
         .{ "!!5", true },
     };
 
+    Globals.init(std.testing.allocator);
+    defer Globals.deinit();
+
+    var env = Environment.init(std.testing.allocator);
+    defer env.deinit();
+
     for (tests) |t| {
         const lexer = Lexer.init(t[0]);
         var parser = try Parser.init(std.testing.allocator, lexer);
@@ -575,10 +499,10 @@ test "TestBangOperator" {
 
         checkParserErrors(parser);
 
-        var evaluator = Evaluator.init(node);
-        defer evaluator.deinit();
+        var evaluator = Evaluator.init(std.testing.allocator);
 
-        const result = evaluator.eval();
+        const result = evaluator.eval(node, &env);
+
         {
             const expected = t[1];
             const actual = result.?.boolean.value;
@@ -598,13 +522,19 @@ test "TestIfElseExpressions" {
     };
     const tests = [_]Test{
         .{ "if (true) { 10 }", .{ .integer = 10 } },
-        .{ "if (false) { 10 }", .{ .null = NULL } },
+        .{ "if (false) { 10 }", .{ .null = Globals.NULL } },
         .{ "if (1) { 10 }", .{ .integer = 10 } },
         .{ "if (1 < 2) { 10 }", .{ .integer = 10 } },
-        .{ "if (1 > 2) { 10 }", .{ .null = NULL } },
+        .{ "if (1 > 2) { 10 }", .{ .null = Globals.NULL } },
         .{ "if (1 > 2) { 10 } else { 20 }", .{ .integer = 20 } },
         .{ "if (1 < 2) { 10 } else { 20 }", .{ .integer = 10 } },
     };
+
+    Globals.init(std.testing.allocator);
+    defer Globals.deinit();
+
+    var env = Environment.init(std.testing.allocator);
+    defer env.deinit();
 
     for (tests) |t| {
         const lexer = Lexer.init(t[0]);
@@ -615,10 +545,9 @@ test "TestIfElseExpressions" {
 
         checkParserErrors(parser);
 
-        var evaluator = Evaluator.init(node);
-        defer evaluator.deinit();
+        var evaluator = Evaluator.init(std.testing.allocator);
 
-        const result = evaluator.eval();
+        const result = evaluator.eval(node, &env);
 
         {
             const expected = t[1];
@@ -629,7 +558,7 @@ test "TestIfElseExpressions" {
                 },
                 .null => |x| {
                     const actual = x;
-                    try std.testing.expectEqual(NULL.null, actual);
+                    try std.testing.expectEqual(Globals.NULL.null, actual);
                 },
                 else => unreachable,
             }
@@ -649,6 +578,12 @@ test "TestReturnStatements" {
         .{ "9; return 2 * 5; 9;", 10 },
     };
 
+    Globals.init(std.testing.allocator);
+    defer Globals.deinit();
+
+    var env = Environment.init(std.testing.allocator);
+    defer env.deinit();
+
     for (tests) |t| {
         const lexer = Lexer.init(t[0]);
         var parser = try Parser.init(std.testing.allocator, lexer);
@@ -658,10 +593,9 @@ test "TestReturnStatements" {
 
         checkParserErrors(parser);
 
-        var evaluator = Evaluator.init(node);
-        defer evaluator.deinit();
+        var evaluator = Evaluator.init(std.testing.allocator);
 
-        const result = evaluator.eval();
+        const result = evaluator.eval(node, &env);
 
         {
             const expected = t[1];
@@ -717,6 +651,12 @@ test "TestErrorHandling" {
         },
     };
 
+    Globals.init(std.testing.allocator);
+    defer Globals.deinit();
+
+    var env = Environment.init(std.testing.allocator);
+    defer env.deinit();
+
     for (tests) |t| {
         const lexer = Lexer.init(t[0]);
         var parser = try Parser.init(std.testing.allocator, lexer);
@@ -726,10 +666,9 @@ test "TestErrorHandling" {
 
         checkParserErrors(parser);
 
-        var evaluator = Evaluator.init(node);
-        defer evaluator.deinit();
+        var evaluator = Evaluator.init(std.testing.allocator);
 
-        const result = evaluator.eval();
+        const result = evaluator.eval(node, &env);
 
         {
             const expected = t[1];
@@ -751,6 +690,12 @@ test "TestLetStatements" {
         .{ "let a = 5; let b = a; let c = a + b + 5; c;", 15 },
     };
 
+    Globals.init(std.testing.allocator);
+    defer Globals.deinit();
+
+    var env = Environment.init(std.testing.allocator);
+    defer env.deinit();
+
     for (tests) |t| {
         const lexer = Lexer.init(t[0]);
         var parser = try Parser.init(std.testing.allocator, lexer);
@@ -760,10 +705,9 @@ test "TestLetStatements" {
 
         checkParserErrors(parser);
 
-        var evaluator = Evaluator.init(node);
-        defer evaluator.deinit();
+        var evaluator = Evaluator.init(std.testing.allocator);
 
-        const result = evaluator.eval();
+        const result = evaluator.eval(node, &env);
 
         {
             const expected = t[1];

@@ -1,9 +1,16 @@
 const builtin = @import("builtin");
 const std = @import("std");
 
+const Environment = @import("Environment.zig");
+const Evaluator = @import("Evaluator.zig");
+const Globals = @import("Globals.zig");
 const Lexer = @import("Lexer.zig");
 const Parser = @import("Parser.zig");
-const Evaluator = @import("Evaluator.zig");
+const Ast = struct {
+    usingnamespace @import("Ast.zig");
+    usingnamespace @import("Expression.zig");
+    usingnamespace @import("Statement.zig");
+};
 
 const PROMPT = ">> ";
 const DELIMITER = if (builtin.os.tag == .windows) '\r' else '\n';
@@ -25,17 +32,24 @@ pub fn start(stdin: anytype, stdout: anytype) !void {
     var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
     const gpa = general_purpose_allocator.allocator();
 
-    var input = std.ArrayList(u8).init(gpa);
-    defer input.deinit();
+    Globals.init(gpa);
+    defer Globals.deinit();
 
-    while (true) {
+    var env = Environment.init(gpa);
+    defer env.deinit();
+
+    var node: *Ast.Node = undefined;
+
+    loop: while (true) {
         try stdout.writeAll(PROMPT);
+
+        var input = std.ArrayList(u8).init(gpa);
 
         stdin.streamUntilDelimiter(input.writer(), DELIMITER, null) catch |err| switch (err) {
             error.EndOfStream => {
-                try stdout.writeAll("\nKeyboardInterrupt");
-                input.clearRetainingCapacity();
-                break;
+                try stdout.writeAll("KeyboardInterrupt");
+                input.deinit();
+                break :loop;
             },
             else => |x| return x,
         };
@@ -50,24 +64,22 @@ pub fn start(stdin: anytype, stdout: anytype) !void {
         const lexer = Lexer.init(line);
         var parser = try Parser.init(gpa, lexer);
         defer parser.deinit();
-        var node = parser.parseProgram();
+        node = parser.parseProgram();
         defer node.deinit();
 
         if (parser.errors.items.len != 0) {
             try printParserErrors(stdout, parser.errors);
-            input.clearRetainingCapacity();
+            input.deinit();
             continue;
         }
 
-        var evaluator = Evaluator.init(node);
-        defer evaluator.deinit();
+        var evaluator = Evaluator.init(gpa);
 
-        if (evaluator.eval()) |result| {
+        if (evaluator.eval(node, &env)) |result| {
             try result.inspect(stdout);
             try stdout.writeByte('\n');
         }
-
-        input.clearRetainingCapacity();
+        Globals.inputAppend(input);
     }
 }
 
@@ -78,25 +90,3 @@ fn printParserErrors(writer: anytype, errors: std.ArrayList([]const u8)) !void {
         try writer.print("\t{s}\n", .{msg});
     }
 }
-
-// try stdout.writeAll(try result.?.inspect(stdout));
-// try stdout.writeAll(result.?.inspect(stdout));
-// _ = try stdout.write("\n");
-// try program.string(stdout);
-// _ = try stdout.write("\n");
-// try evaluated.inspect(stdout);
-// _ = try stdout.write("\n");
-
-// switch (evaluated) {
-//     .null
-// };
-
-// try stdout.writeAll(program.string(stdout));
-
-// var lexer = Lexer.init(line);
-// var tok: Token = lexer.nextToken();
-//
-// while (tok.type != .eof) {
-//     try stdout.print("{?}\n", .{tok});
-//     tok = lexer.nextToken();
-// }

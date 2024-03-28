@@ -420,16 +420,8 @@ fn parseCallExpression(self: *Parser, function: *Ast.Expression) *Ast.Expression
     self.parseCallArguments(&call_expr.arguments);
 
     const e = self.allocator.create(Ast.Expression) catch @panic("OOM");
-    e.* = .{ .call_expression = call_expr };
+    e.* = Ast.Expression{ .call_expression = call_expr };
     return e;
-
-    // const e = self.allocator.create(Ast.Expression) catch @panic("OOM");
-    // e.call_expression = call_expr;
-    // return e;
-
-    // return Ast.Expression{
-    //     .call_expression = call_expr,
-    // };
 }
 
 fn parseCallArguments(self: *Parser, args: *std.ArrayList(*Ast.Expression)) void {
