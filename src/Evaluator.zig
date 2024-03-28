@@ -184,10 +184,10 @@ fn evalPrefixExpression(self: *Evaluator, operator: []const u8, right: *Object.O
 }
 
 fn evalPrefixBangExpression(right: *Object.Object) *Object.Object {
-    if (right == Globals.TRUE) return Globals.FALSE;
-    if (right == Globals.FALSE) return Globals.TRUE;
-    if (right == Globals.NULL) return Globals.TRUE;
-    return Globals.FALSE;
+    if (right == Environment.TRUE) return Environment.FALSE;
+    if (right == Environment.FALSE) return Environment.TRUE;
+    if (right == Environment.NULL) return Environment.TRUE;
+    return Environment.FALSE;
 }
 
 fn evalPrefixMinusExpression(self: *Evaluator, right: *Object.Object) *Object.Object {
@@ -290,7 +290,7 @@ fn evalIfExpression(self: *Evaluator, ie: *Ast.IfExpression, env: *Environment) 
     } else if (ie.alternative) |alt| {
         return self.evalBlockStatement(alt, env);
     } else {
-        return Globals.NULL;
+        return Environment.NULL;
     }
 }
 
@@ -299,13 +299,13 @@ fn evalIdentifier(self: *Evaluator, ident: *Ast.Identifier, env: *Environment) *
 }
 
 fn isTruthy(obj: *Object.Object) bool {
-    if (obj == Globals.NULL) {
+    if (obj == Environment.NULL) {
         return false;
     }
-    if (obj == Globals.TRUE) {
+    if (obj == Environment.TRUE) {
         return true;
     }
-    if (obj == Globals.FALSE) {
+    if (obj == Environment.FALSE) {
         return false;
     }
     return true;
@@ -313,9 +313,9 @@ fn isTruthy(obj: *Object.Object) bool {
 
 fn nativeBoolToBooleanObject(input: bool) *Object.Object {
     if (input) {
-        return Globals.TRUE;
+        return Environment.TRUE;
     } else {
-        return Globals.FALSE;
+        return Environment.FALSE;
     }
 }
 
@@ -522,10 +522,10 @@ test "TestIfElseExpressions" {
     };
     const tests = [_]Test{
         .{ "if (true) { 10 }", .{ .integer = 10 } },
-        .{ "if (false) { 10 }", .{ .null = Globals.NULL } },
+        .{ "if (false) { 10 }", .{ .null = Environment.NULL } },
         .{ "if (1) { 10 }", .{ .integer = 10 } },
         .{ "if (1 < 2) { 10 }", .{ .integer = 10 } },
-        .{ "if (1 > 2) { 10 }", .{ .null = Globals.NULL } },
+        .{ "if (1 > 2) { 10 }", .{ .null = Environment.NULL } },
         .{ "if (1 > 2) { 10 } else { 20 }", .{ .integer = 20 } },
         .{ "if (1 < 2) { 10 } else { 20 }", .{ .integer = 10 } },
     };
@@ -558,7 +558,7 @@ test "TestIfElseExpressions" {
                 },
                 .null => |x| {
                     const actual = x;
-                    try std.testing.expectEqual(Globals.NULL.null, actual);
+                    try std.testing.expectEqual(Environment.NULL.null, actual);
                 },
                 else => unreachable,
             }

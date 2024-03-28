@@ -1,16 +1,12 @@
 const builtin = @import("builtin");
 const std = @import("std");
 
+const Ast = @import("Ast.zig");
 const Environment = @import("Environment.zig");
 const Evaluator = @import("Evaluator.zig");
 const Globals = @import("Globals.zig");
 const Lexer = @import("Lexer.zig");
 const Parser = @import("Parser.zig");
-const Ast = struct {
-    usingnamespace @import("Ast.zig");
-    usingnamespace @import("Expression.zig");
-    usingnamespace @import("Statement.zig");
-};
 
 const PROMPT = ">> ";
 const DELIMITER = if (builtin.os.tag == .windows) '\r' else '\n';
@@ -32,6 +28,8 @@ pub fn start(stdin: anytype, stdout: anytype) !void {
     var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
     const gpa = general_purpose_allocator.allocator();
 
+    var input = std.ArrayList(u8).init(gpa);
+
     Globals.init(gpa);
     defer Globals.deinit();
 
@@ -42,8 +40,6 @@ pub fn start(stdin: anytype, stdout: anytype) !void {
 
     loop: while (true) {
         try stdout.writeAll(PROMPT);
-
-        var input = std.ArrayList(u8).init(gpa);
 
         stdin.streamUntilDelimiter(input.writer(), DELIMITER, null) catch |err| switch (err) {
             error.EndOfStream => {
@@ -79,7 +75,7 @@ pub fn start(stdin: anytype, stdout: anytype) !void {
             try result.inspect(stdout);
             try stdout.writeByte('\n');
         }
-        Globals.inputAppend(input);
+        input.clearRetainingCapacity();
     }
 }
 

@@ -48,11 +48,9 @@ pub fn main() !void {
 
 test {
     _ = @import("Ast.zig");
+    _ = @import("Environment.zig");
     _ = @import("Evaluator.zig");
-    _ = @import("Expression.zig");
     _ = @import("Lexer.zig");
     _ = @import("Parser.zig");
-    _ = @import("Repl.zig");
-    _ = @import("Statement.zig");
     _ = @import("Token.zig");
 }

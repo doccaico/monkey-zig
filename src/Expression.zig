@@ -1,10 +1,8 @@
 const std = @import("std");
 
-const Token = @import("Token.zig");
+const Ast = @import("Statement.zig");
 const ParserError = @import("Parser.zig").ParserError;
-const Ast = struct {
-    usingnamespace @import("Statement.zig");
-};
+const Token = @import("Token.zig");
 
 pub const Expression = union(enum(u8)) {
     @"error": ParserError,

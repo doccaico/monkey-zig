@@ -1,5 +1,3 @@
-const Evaluator = @import("Evaluator.zig");
-
 const ObjectType = []const u8;
 
 pub const INTEGER_OBJ: ObjectType = "INTEGER";
