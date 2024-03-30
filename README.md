@@ -10,10 +10,10 @@ $ zig test src\main.zig
 
 # 単体テスト
 
-$ zig test src\Evaluator.zig --test-filter TestClosures (通らないが...)
+$ zig test src\Evaluator.zig --test-filter TestClosures
 ```
 
 ## Memo
 ```
-Evaluation - 3.10 - Functions & Function Calls - TestClosures が通らないので頓挫 2024/03/30
+* 03/30 3.10 - Functions & Function Calls
 ```

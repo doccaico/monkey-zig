@@ -95,7 +95,7 @@ test "TestRepl" {
         []const u8,
         i64,
     };
-    // use 0 for null value
+    // use '0' for null value
     const tests = [_]Test{
         .{ "let addTwo = fn(x) { x + 2; }; 0;", 0 },
         .{ "addTwo(2);", 4 },
@@ -113,8 +113,14 @@ test "TestRepl" {
     var env = Environment.init(std.testing.allocator);
     defer env.deinit();
 
+    var line_list = std.ArrayList([]const u8).init(std.testing.allocator);
+
     for (tests) |t| {
-        const lexer = Lexer.init(t[0]);
+        const line = try std.testing.allocator.alloc(u8, t[0].len);
+        @memcpy(line, t[0]);
+        try line_list.append(line);
+
+        const lexer = Lexer.init(line);
         var parser = try Parser.init(std.testing.allocator, lexer);
         defer parser.deinit();
         const node_program = parser.parseProgram();
@@ -132,4 +138,9 @@ test "TestRepl" {
             try std.testing.expectEqual(expected, actual);
         }
     }
+
+    for (line_list.items) |item| {
+        std.testing.allocator.free(item);
+    }
+    line_list.deinit();
 }
