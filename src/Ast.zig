@@ -108,6 +108,10 @@ pub const Node = union(enum) {
                             freeExpressionPointer(allocator, y.expression);
                             y.deinit();
                         },
+                        .return_statement => |y| {
+                            freeExpressionPointer(allocator, y.return_value);
+                            y.deinit();
+                        },
                         else => {},
                     }
                     allocator.destroy(stmt);

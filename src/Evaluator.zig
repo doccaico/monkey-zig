@@ -117,6 +117,31 @@ pub fn eval(self: *Evaluator, node: *Ast.Node, env: *Environment) ?*Object.Objec
                 .identifier => |y| {
                     return self.evalIdentifier(y, env);
                 },
+                .function_literal => |y| {
+                    const new_function_obj = self.createObjectFunction();
+                    new_function_obj.parameters = y.parameters;
+                    new_function_obj.body = y.body;
+                    new_function_obj.env = env;
+
+                    const new_obj = self.createObject();
+                    new_obj.* = Object.Object{ .function = new_function_obj };
+                    return new_obj;
+                },
+                .call_expression => |y| {
+                    const new_node = self.createNode();
+                    new_node.* = Ast.Node{ .expression = y.function };
+
+                    const result = self.eval(new_node, env);
+                    if (isError(result)) {
+                        return result;
+                    }
+                    const args = self.evalExpressions(y.arguments, env);
+                    Globals.argsAppend(args);
+                    if (args.items.len == 1 and isError(args.items[0])) {
+                        return args.items[0];
+                    }
+                    return self.applyFunction(env, result.?, args);
+                },
                 else => {},
                 // else => unreachable,
             }
@@ -161,6 +186,7 @@ fn evalBlockStatement(self: *Evaluator, bs: *Ast.BlockStatement, env: *Environme
             }
         }
     }
+
     return result.?;
 }
 
@@ -298,6 +324,49 @@ fn evalIdentifier(self: *Evaluator, ident: *Ast.Identifier, env: *Environment) *
     return env.get(ident.value) orelse self.createError("identifier not found: {s}", .{ident.value});
 }
 
+fn evalExpressions(self: *Evaluator, exps: std.ArrayList(*Ast.Expression), env: *Environment) std.ArrayList(*Object.Object) {
+    var result = std.ArrayList(*Object.Object).init(self.allocator);
+    for (exps.items) |e| {
+        const new_node = self.createNode();
+        new_node.* = Ast.Node{ .expression = e };
+
+        const evaluated = self.eval(new_node, env).?;
+        if (isError(evaluated)) {
+            result.append(evaluated) catch @panic("OOM");
+            return result;
+        }
+        result.append(evaluated) catch @panic("OOM");
+    }
+    return result;
+}
+
+fn applyFunction(self: *Evaluator, env: *Environment, func: *Object.Object, args: std.ArrayList(*Object.Object)) *Object.Object {
+    const function = switch (func.*) {
+        .function => func.function,
+        else => return self.createError("not a function: {s}", .{func.getType()}),
+    };
+
+    const extended_env = extendFunctionEnv(env, function, args);
+    const evaluated = self.evalBlockStatement(function.body, extended_env);
+
+    return unwrapReturnValue(evaluated);
+}
+
+fn extendFunctionEnv(env: *Environment, func: *Object.Function, args: std.ArrayList(*Object.Object)) *Environment {
+    const new_env = env.newEnclosedEnvironment(func.env);
+    for (func.parameters.items, 0..) |param, param_idx| {
+        new_env.set(param.value, args.items[param_idx]);
+    }
+    return new_env;
+}
+
+fn unwrapReturnValue(obj: *Object.Object) *Object.Object {
+    return switch (obj.*) {
+        .return_value => |x| x.value,
+        else => obj,
+    };
+}
+
 fn isTruthy(obj: *Object.Object) bool {
     if (obj == Environment.NULL) {
         return false;
@@ -345,6 +414,11 @@ fn createObjectInteger(self: Evaluator) *Object.Integer {
 
 fn createObjectReturnValue(self: Evaluator) *Object.ReturnValue {
     const new_obj = self.allocator.create(Object.ReturnValue) catch @panic("OOM");
+    return new_obj;
+}
+
+fn createObjectFunction(self: Evaluator) *Object.Function {
+    const new_obj = self.allocator.create(Object.Function) catch @panic("OOM");
     return new_obj;
 }
 
@@ -404,7 +478,7 @@ test "TestEvalIntegerExpression" {
 
         var evaluator = Evaluator.init(std.testing.allocator);
 
-        const result = evaluator.eval(node, &env);
+        const result = evaluator.eval(node, env);
 
         {
             const expected = t[1];
@@ -460,7 +534,7 @@ test "TestEvalBooleanExpression" {
 
         var evaluator = Evaluator.init(std.testing.allocator);
 
-        const result = evaluator.eval(node, &env);
+        const result = evaluator.eval(node, env);
 
         {
             const expected = t[1];
@@ -501,7 +575,7 @@ test "TestBangOperator" {
 
         var evaluator = Evaluator.init(std.testing.allocator);
 
-        const result = evaluator.eval(node, &env);
+        const result = evaluator.eval(node, env);
 
         {
             const expected = t[1];
@@ -547,7 +621,7 @@ test "TestIfElseExpressions" {
 
         var evaluator = Evaluator.init(std.testing.allocator);
 
-        const result = evaluator.eval(node, &env);
+        const result = evaluator.eval(node, env);
 
         {
             const expected = t[1];
@@ -595,7 +669,7 @@ test "TestReturnStatements" {
 
         var evaluator = Evaluator.init(std.testing.allocator);
 
-        const result = evaluator.eval(node, &env);
+        const result = evaluator.eval(node, env);
 
         {
             const expected = t[1];
@@ -668,7 +742,7 @@ test "TestErrorHandling" {
 
         var evaluator = Evaluator.init(std.testing.allocator);
 
-        const result = evaluator.eval(node, &env);
+        const result = evaluator.eval(node, env);
 
         {
             const expected = t[1];
@@ -707,7 +781,7 @@ test "TestLetStatements" {
 
         var evaluator = Evaluator.init(std.testing.allocator);
 
-        const result = evaluator.eval(node, &env);
+        const result = evaluator.eval(node, env);
 
         {
             const expected = t[1];
@@ -716,3 +790,164 @@ test "TestLetStatements" {
         }
     }
 }
+
+test "TestFunctionObject" {
+    const input = "fn(x) { x + 2; };";
+
+    Globals.init(std.testing.allocator);
+    defer Globals.deinit();
+
+    var env = Environment.init(std.testing.allocator);
+    defer env.deinit();
+
+    const lexer = Lexer.init(input);
+    var parser = try Parser.init(std.testing.allocator, lexer);
+    defer parser.deinit();
+    var node = parser.parseProgram();
+    defer node.deinit();
+
+    checkParserErrors(parser);
+
+    var evaluator = Evaluator.init(std.testing.allocator);
+
+    const result = evaluator.eval(node, env);
+
+    {
+        const expected = 1;
+        const actual = result.?.function.parameters.items.len;
+        try std.testing.expectEqual(expected, actual);
+    }
+
+    {
+        const expected = "x";
+        const actual = result.?.function.parameters.items[0].value;
+        try std.testing.expectEqualStrings(expected, actual);
+    }
+
+    {
+        const expected = "(x + 2)";
+        var buffer = std.ArrayList(u8).init(std.testing.allocator);
+        defer buffer.deinit();
+        try result.?.function.body.string(buffer.writer());
+        const actual = buffer.items;
+        try std.testing.expectEqualStrings(expected, actual);
+    }
+}
+
+test "TestFunctionApplication" {
+    const Test = struct {
+        []const u8,
+        i64,
+    };
+    const tests = [_]Test{
+        .{ "let identity = fn(x) { x; }; identity(5);", 5 },
+        .{ "let identity = fn(x) { return x; }; identity(5);", 5 },
+        .{ "let double = fn(x) { x * 2; }; double(5);", 10 },
+        .{ "let add = fn(x, y) { x + y; }; add(5, 5);", 10 },
+        .{ "let add = fn(x, y) { x + y; }; add(5 + 5, add(5, 5));", 20 },
+        .{ "fn(x) { x; }(5)", 5 },
+    };
+
+    Globals.init(std.testing.allocator);
+    defer Globals.deinit();
+
+    var env = Environment.init(std.testing.allocator);
+    defer env.deinit();
+
+    for (tests) |t| {
+        const lexer = Lexer.init(t[0]);
+        var parser = try Parser.init(std.testing.allocator, lexer);
+        defer parser.deinit();
+        var node_program = parser.parseProgram();
+        defer node_program.deinit();
+
+        checkParserErrors(parser);
+
+        var evaluator = Evaluator.init(std.testing.allocator);
+
+        const result = evaluator.eval(node_program, env);
+
+        {
+            const expected = t[1];
+            const actual = result.?.integer.value;
+            try std.testing.expectEqual(expected, actual);
+        }
+    }
+}
+
+// 通らない
+test "TestClosures" {
+    const input =
+        \\let newAdder = fn(x) {
+        \\  fn(y) { x + y };
+        \\};
+        \\
+        \\let addTwo = newAdder(2);
+        \\addTwo(2);
+    ;
+
+    Globals.init(std.testing.allocator);
+    defer Globals.deinit();
+
+    var env = Environment.init(std.testing.allocator);
+    defer env.deinit();
+
+    const lexer = Lexer.init(input);
+    var parser = try Parser.init(std.testing.allocator, lexer);
+    defer parser.deinit();
+    var node_program = parser.parseProgram();
+    defer node_program.deinit();
+
+    checkParserErrors(parser);
+
+    var evaluator = Evaluator.init(std.testing.allocator);
+
+    const result = evaluator.eval(node_program, env);
+
+    {
+        const expected: i64 = 4;
+        const actual = result.?.integer.value;
+        try std.testing.expectEqual(expected, actual);
+    }
+}
+
+// test "TestFunctionApplication" {
+//     const Test = struct {
+//         []const u8,
+//         i64,
+//     };
+//     const tests = [_]Test{
+//         .{ "let addTwo = fn(x) { x + 2; }; addTwo(2);", 4 },
+//         .{ "addTwo(2);", 4 },
+//     };
+//
+//     Globals.init(std.testing.allocator);
+//     defer Globals.deinit();
+//
+//     var env = Environment.init(std.testing.allocator);
+//     defer env.deinit();
+//
+//     var node_program: *Ast.Node = undefined;
+//
+//     for (tests) |t| {
+//         const lexer = Lexer.init(t[0]);
+//         var parser = try Parser.init(std.testing.allocator, lexer);
+//         defer parser.deinit();
+//         node_program = parser.parseProgram();
+//         // defer node.deinit();
+//
+//         checkParserErrors(parser);
+//
+//         var evaluator = Evaluator.init(std.testing.allocator);
+//
+//         const result = evaluator.eval(node_program, env);
+//
+//         {
+//             const expected = t[1];
+//             const actual = result.?.integer.value;
+//             try std.testing.expectEqual(expected, actual);
+//         }
+//         Globals.nodeProgramAppend(node_program);
+//     }
+//     // node.deinit();
+// }

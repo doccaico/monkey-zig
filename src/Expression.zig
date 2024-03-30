@@ -152,7 +152,7 @@ pub const FunctionLiteral = struct {
     }
 
     pub fn string(self: FunctionLiteral, writer: anytype) !void {
-        _ = try writer.write(self.tokenLiteral());
+        _ = try writer.write("fn");
         _ = try writer.write("(");
         const size = self.parameters.items.len;
         for (self.parameters.items, 0..) |param, i| {
@@ -161,8 +161,9 @@ pub const FunctionLiteral = struct {
                 _ = try writer.write(", ");
             }
         }
-        _ = try writer.write(") ");
+        _ = try writer.write(") {\n");
         try self.body.string(writer);
+        _ = try writer.write("\n}");
     }
 };
 

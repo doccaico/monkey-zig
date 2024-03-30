@@ -36,7 +36,7 @@ pub fn start(stdin: anytype, stdout: anytype) !void {
     var env = Environment.init(gpa);
     defer env.deinit();
 
-    var node: *Ast.Node = undefined;
+    // var node: *Ast.Node = undefined;
 
     loop: while (true) {
         try stdout.writeAll(PROMPT);
@@ -60,7 +60,7 @@ pub fn start(stdin: anytype, stdout: anytype) !void {
         const lexer = Lexer.init(line);
         var parser = try Parser.init(gpa, lexer);
         defer parser.deinit();
-        node = parser.parseProgram();
+        var node = parser.parseProgram();
         defer node.deinit();
 
         if (parser.errors.items.len != 0) {
@@ -71,7 +71,7 @@ pub fn start(stdin: anytype, stdout: anytype) !void {
 
         var evaluator = Evaluator.init(gpa);
 
-        if (evaluator.eval(node, &env)) |result| {
+        if (evaluator.eval(node, env)) |result| {
             try result.inspect(stdout);
             try stdout.writeByte('\n');
         }

@@ -1,5 +1,6 @@
 const std = @import("std");
 
+const Globals = @import("Globals.zig");
 const Object = @import("Object.zig");
 
 const Environment = @This();
@@ -8,51 +9,82 @@ pub var TRUE: *Object.Object = undefined;
 pub var FALSE: *Object.Object = undefined;
 pub var NULL: *Object.Object = undefined;
 
-var allocator: std.mem.Allocator = undefined;
-
+allocator: std.mem.Allocator,
 store: std.StringHashMap(*Object.Object),
+outer: ?*Environment,
 
-pub fn init(environment_allocator: std.mem.Allocator) Environment {
-    allocator = environment_allocator;
-    TRUE = createObjectBoolean(true);
-    FALSE = createObjectBoolean(false);
-    NULL = createObjectNull();
-    return Environment{
+pub fn init(allocator: std.mem.Allocator) *Environment {
+    TRUE = createObjectBoolean(allocator, true);
+    FALSE = createObjectBoolean(allocator, false);
+    NULL = createObjectNull(allocator);
+
+    const env = allocator.create(Environment) catch @panic("OOM");
+    env.* = Environment{
+        .allocator = allocator,
         .store = std.StringHashMap(*Object.Object).init(allocator),
+        .outer = null,
     };
+    Globals.envAppend(env);
+    return env;
 }
 
 pub fn deinit(self: *Environment) void {
-    allocator.destroy(TRUE.boolean);
-    allocator.destroy(TRUE);
-    allocator.destroy(FALSE.boolean);
-    allocator.destroy(FALSE);
-    allocator.destroy(NULL.null);
-    allocator.destroy(NULL);
+    self.allocator.destroy(TRUE.boolean);
+    self.allocator.destroy(TRUE);
+    self.allocator.destroy(FALSE.boolean);
+    self.allocator.destroy(FALSE);
+    self.allocator.destroy(NULL.null);
+    self.allocator.destroy(NULL);
+}
 
-    var iterator = self.store.keyIterator();
-    while (iterator.next()) |key| {
-        allocator.free(key.*);
+pub fn newEnclosedEnvironment(self: *Environment, outer: ?*Environment) *Environment {
+    const new_outer_env = self.allocator.create(Environment) catch @panic("OOM");
+    new_outer_env.allocator = self.allocator;
+    new_outer_env.store = std.StringHashMap(*Object.Object).init(self.allocator);
+    if (outer) |x| {
+        var iterator = x.store.keyIterator();
+        while (iterator.next()) |key| {
+            const obj = self.store.get(key.*).?;
+
+            const clone_key = self.allocator.alloc(u8, key.len) catch @panic("OOM");
+            @memcpy(clone_key, key.*);
+            new_outer_env.store.put(clone_key, obj) catch @panic("OOM");
+        }
     }
-    self.store.deinit();
+    new_outer_env.outer = null;
+
+    Globals.envAppend(new_outer_env);
+
+    const env = self.allocator.create(Environment) catch @panic("OOM");
+    env.allocator = self.allocator;
+    env.store = std.StringHashMap(*Object.Object).init(self.allocator);
+    env.outer = new_outer_env;
+
+    Globals.envAppend(env);
+
+    return env;
 }
 
 pub fn get(self: Environment, key: []const u8) ?*Object.Object {
-    return self.store.get(key);
+    var obj = self.store.get(key);
+    if (obj == null and self.outer != null) {
+        obj = self.outer.?.get(key);
+    }
+    return obj;
 }
 
 pub fn set(self: *Environment, key: []const u8, value: *Object.Object) void {
     if (self.store.contains(key)) {
         const key_ptr = self.store.getKeyPtr(key).?;
-        allocator.free(key_ptr.*);
+        self.allocator.free(key_ptr.*);
         self.store.removeByPtr(key_ptr);
     }
-    const clone_key = allocator.alloc(u8, key.len) catch @panic("OOM");
+    const clone_key = self.allocator.alloc(u8, key.len) catch @panic("OOM");
     @memcpy(clone_key, key);
     self.store.put(clone_key, value) catch @panic("OOM");
 }
 
-fn createObjectBoolean(value: bool) *Object.Object {
+fn createObjectBoolean(allocator: std.mem.Allocator, value: bool) *Object.Object {
     const new_boolean_obj = allocator.create(Object.Boolean) catch @panic("OOM");
     new_boolean_obj.value = value;
 
@@ -61,7 +93,7 @@ fn createObjectBoolean(value: bool) *Object.Object {
     return new_obj;
 }
 
-fn createObjectNull() *Object.Object {
+fn createObjectNull(allocator: std.mem.Allocator) *Object.Object {
     const new_null_obj = allocator.create(Object.Null) catch @panic("OOM");
 
     const new_obj = allocator.create(Object.Object) catch @panic("OOM");
@@ -71,7 +103,6 @@ fn createObjectNull() *Object.Object {
 
 test "TestEnvironment" {
     const Evaluator = @import("Evaluator.zig");
-    const Globals = @import("Globals.zig");
     const Lexer = @import("Lexer.zig");
     const Parser = @import("Parser.zig");
 
@@ -105,7 +136,7 @@ test "TestEnvironment" {
 
         var evaluator = Evaluator.init(std.testing.allocator);
 
-        const result = evaluator.eval(node, &env);
+        const result = evaluator.eval(node, env);
 
         {
             const expected = t[1];
