@@ -471,14 +471,14 @@ test "TestEvalIntegerExpression" {
         const lexer = Lexer.init(t[0]);
         var parser = try Parser.init(std.testing.allocator, lexer);
         defer parser.deinit();
-        var node = parser.parseProgram();
-        defer node.deinit();
+        const node_program = parser.parseProgram();
+        defer Globals.nodeProgramAppend(node_program);
 
         checkParserErrors(parser);
 
         var evaluator = Evaluator.init(std.testing.allocator);
 
-        const result = evaluator.eval(node, env);
+        const result = evaluator.eval(node_program, env);
 
         {
             const expected = t[1];
@@ -527,14 +527,14 @@ test "TestEvalBooleanExpression" {
         const lexer = Lexer.init(t[0]);
         var parser = try Parser.init(std.testing.allocator, lexer);
         defer parser.deinit();
-        var node = parser.parseProgram();
-        defer node.deinit();
+        const node_program = parser.parseProgram();
+        defer Globals.nodeProgramAppend(node_program);
 
         checkParserErrors(parser);
 
         var evaluator = Evaluator.init(std.testing.allocator);
 
-        const result = evaluator.eval(node, env);
+        const result = evaluator.eval(node_program, env);
 
         {
             const expected = t[1];
@@ -568,14 +568,14 @@ test "TestBangOperator" {
         const lexer = Lexer.init(t[0]);
         var parser = try Parser.init(std.testing.allocator, lexer);
         defer parser.deinit();
-        var node = parser.parseProgram();
-        defer node.deinit();
+        const node_program = parser.parseProgram();
+        defer Globals.nodeProgramAppend(node_program);
 
         checkParserErrors(parser);
 
         var evaluator = Evaluator.init(std.testing.allocator);
 
-        const result = evaluator.eval(node, env);
+        const result = evaluator.eval(node_program, env);
 
         {
             const expected = t[1];
@@ -614,14 +614,14 @@ test "TestIfElseExpressions" {
         const lexer = Lexer.init(t[0]);
         var parser = try Parser.init(std.testing.allocator, lexer);
         defer parser.deinit();
-        var node = parser.parseProgram();
-        defer node.deinit();
+        const node_program = parser.parseProgram();
+        defer Globals.nodeProgramAppend(node_program);
 
         checkParserErrors(parser);
 
         var evaluator = Evaluator.init(std.testing.allocator);
 
-        const result = evaluator.eval(node, env);
+        const result = evaluator.eval(node_program, env);
 
         {
             const expected = t[1];
@@ -662,14 +662,14 @@ test "TestReturnStatements" {
         const lexer = Lexer.init(t[0]);
         var parser = try Parser.init(std.testing.allocator, lexer);
         defer parser.deinit();
-        var node = parser.parseProgram();
-        defer node.deinit();
+        const node_program = parser.parseProgram();
+        defer Globals.nodeProgramAppend(node_program);
 
         checkParserErrors(parser);
 
         var evaluator = Evaluator.init(std.testing.allocator);
 
-        const result = evaluator.eval(node, env);
+        const result = evaluator.eval(node_program, env);
 
         {
             const expected = t[1];
@@ -735,14 +735,14 @@ test "TestErrorHandling" {
         const lexer = Lexer.init(t[0]);
         var parser = try Parser.init(std.testing.allocator, lexer);
         defer parser.deinit();
-        var node = parser.parseProgram();
-        defer node.deinit();
+        const node_program = parser.parseProgram();
+        defer Globals.nodeProgramAppend(node_program);
 
         checkParserErrors(parser);
 
         var evaluator = Evaluator.init(std.testing.allocator);
 
-        const result = evaluator.eval(node, env);
+        const result = evaluator.eval(node_program, env);
 
         {
             const expected = t[1];
@@ -774,14 +774,14 @@ test "TestLetStatements" {
         const lexer = Lexer.init(t[0]);
         var parser = try Parser.init(std.testing.allocator, lexer);
         defer parser.deinit();
-        var node = parser.parseProgram();
-        defer node.deinit();
+        const node_program = parser.parseProgram();
+        defer Globals.nodeProgramAppend(node_program);
 
         checkParserErrors(parser);
 
         var evaluator = Evaluator.init(std.testing.allocator);
 
-        const result = evaluator.eval(node, env);
+        const result = evaluator.eval(node_program, env);
 
         {
             const expected = t[1];
@@ -803,14 +803,14 @@ test "TestFunctionObject" {
     const lexer = Lexer.init(input);
     var parser = try Parser.init(std.testing.allocator, lexer);
     defer parser.deinit();
-    var node = parser.parseProgram();
-    defer node.deinit();
+    const node_program = parser.parseProgram();
+    defer Globals.nodeProgramAppend(node_program);
 
     checkParserErrors(parser);
 
     var evaluator = Evaluator.init(std.testing.allocator);
 
-    const result = evaluator.eval(node, env);
+    const result = evaluator.eval(node_program, env);
 
     {
         const expected = 1;
@@ -858,8 +858,8 @@ test "TestFunctionApplication" {
         const lexer = Lexer.init(t[0]);
         var parser = try Parser.init(std.testing.allocator, lexer);
         defer parser.deinit();
-        var node_program = parser.parseProgram();
-        defer node_program.deinit();
+        const node_program = parser.parseProgram();
+        defer Globals.nodeProgramAppend(node_program);
 
         checkParserErrors(parser);
 
@@ -875,7 +875,6 @@ test "TestFunctionApplication" {
     }
 }
 
-// 通らない
 test "TestClosures" {
     const input =
         \\let newAdder = fn(x) {
@@ -895,8 +894,8 @@ test "TestClosures" {
     const lexer = Lexer.init(input);
     var parser = try Parser.init(std.testing.allocator, lexer);
     defer parser.deinit();
-    var node_program = parser.parseProgram();
-    defer node_program.deinit();
+    const node_program = parser.parseProgram();
+    defer Globals.nodeProgramAppend(node_program);
 
     checkParserErrors(parser);
 
@@ -910,44 +909,3 @@ test "TestClosures" {
         try std.testing.expectEqual(expected, actual);
     }
 }
-
-// test "TestFunctionApplication" {
-//     const Test = struct {
-//         []const u8,
-//         i64,
-//     };
-//     const tests = [_]Test{
-//         .{ "let addTwo = fn(x) { x + 2; }; addTwo(2);", 4 },
-//         .{ "addTwo(2);", 4 },
-//     };
-//
-//     Globals.init(std.testing.allocator);
-//     defer Globals.deinit();
-//
-//     var env = Environment.init(std.testing.allocator);
-//     defer env.deinit();
-//
-//     var node_program: *Ast.Node = undefined;
-//
-//     for (tests) |t| {
-//         const lexer = Lexer.init(t[0]);
-//         var parser = try Parser.init(std.testing.allocator, lexer);
-//         defer parser.deinit();
-//         node_program = parser.parseProgram();
-//         // defer node.deinit();
-//
-//         checkParserErrors(parser);
-//
-//         var evaluator = Evaluator.init(std.testing.allocator);
-//
-//         const result = evaluator.eval(node_program, env);
-//
-//         {
-//             const expected = t[1];
-//             const actual = result.?.integer.value;
-//             try std.testing.expectEqual(expected, actual);
-//         }
-//         Globals.nodeProgramAppend(node_program);
-//     }
-//     // node.deinit();
-// }

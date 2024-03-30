@@ -38,27 +38,10 @@ pub fn deinit(self: *Environment) void {
 }
 
 pub fn newEnclosedEnvironment(self: *Environment, outer: ?*Environment) *Environment {
-    const new_outer_env = self.allocator.create(Environment) catch @panic("OOM");
-    new_outer_env.allocator = self.allocator;
-    new_outer_env.store = std.StringHashMap(*Object.Object).init(self.allocator);
-    if (outer) |x| {
-        var iterator = x.store.keyIterator();
-        while (iterator.next()) |key| {
-            const obj = self.store.get(key.*).?;
-
-            const clone_key = self.allocator.alloc(u8, key.len) catch @panic("OOM");
-            @memcpy(clone_key, key.*);
-            new_outer_env.store.put(clone_key, obj) catch @panic("OOM");
-        }
-    }
-    new_outer_env.outer = null;
-
-    Globals.envAppend(new_outer_env);
-
     const env = self.allocator.create(Environment) catch @panic("OOM");
     env.allocator = self.allocator;
     env.store = std.StringHashMap(*Object.Object).init(self.allocator);
-    env.outer = new_outer_env;
+    env.outer = outer;
 
     Globals.envAppend(env);
 
@@ -74,14 +57,7 @@ pub fn get(self: Environment, key: []const u8) ?*Object.Object {
 }
 
 pub fn set(self: *Environment, key: []const u8, value: *Object.Object) void {
-    if (self.store.contains(key)) {
-        const key_ptr = self.store.getKeyPtr(key).?;
-        self.allocator.free(key_ptr.*);
-        self.store.removeByPtr(key_ptr);
-    }
-    const clone_key = self.allocator.alloc(u8, key.len) catch @panic("OOM");
-    @memcpy(clone_key, key);
-    self.store.put(clone_key, value) catch @panic("OOM");
+    self.store.put(key, value) catch @panic("OOM");
 }
 
 fn createObjectBoolean(allocator: std.mem.Allocator, value: bool) *Object.Object {

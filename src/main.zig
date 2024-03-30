@@ -52,5 +52,6 @@ test {
     _ = @import("Evaluator.zig");
     _ = @import("Lexer.zig");
     _ = @import("Parser.zig");
+    _ = @import("Repl.zig");
     _ = @import("Token.zig");
 }
