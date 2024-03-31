@@ -19,6 +19,7 @@ pub const ERROR_OBJ: ObjectType = "ERROR";
 pub const FUNCTION_OBJ: ObjectType = "FUNCTION";
 pub const STRING_OBJ: ObjectType = "STRING";
 pub const BUILTIN_OBJ: ObjectType = "BUILTIN";
+pub const ARRAY_OBJ: ObjectType = "ARRAY";
 
 pub const Object = union(enum(u8)) {
     integer: *Integer,
@@ -29,6 +30,7 @@ pub const Object = union(enum(u8)) {
     function: *Function,
     string: *String,
     builtin: *Builtin,
+    array: *Array,
 
     pub fn inspect(self: Object, writer: anytype) !void {
         switch (self) {
@@ -80,7 +82,7 @@ pub const Null = struct {
 pub const ReturnValue = struct {
     value: *Object,
 
-    pub fn inspect(self: ReturnValue, writer: anytype) !void {
+    pub fn inspect(self: ReturnValue, writer: anytype) anyerror!void {
         switch (self.value.*) {
             inline else => |x| try x.inspect(writer),
         }
@@ -149,5 +151,28 @@ pub const Builtin = struct {
 
     pub fn getType(_: Builtin) ObjectType {
         return BUILTIN_OBJ;
+    }
+};
+
+pub const Array = struct {
+    elements: std.ArrayList(*Object),
+
+    pub fn inspect(self: Array, writer: anytype) anyerror!void {
+        _ = try writer.write("[");
+
+        const size = self.elements.items.len;
+        for (self.elements.items, 0..) |elem, i| {
+            switch (elem.*) {
+                inline else => |x| try x.inspect(writer),
+            }
+            if (i < size - 1) {
+                _ = try writer.write(", ");
+            }
+        }
+        _ = try writer.write("]");
+    }
+
+    pub fn getType(_: Array) ObjectType {
+        return ARRAY_OBJ;
     }
 };

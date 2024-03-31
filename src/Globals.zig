@@ -39,6 +39,10 @@ pub fn deinit() void {
             .function => |x| allocator.destroy(x),
             .string => |x| allocator.destroy(x),
             .builtin => |x| allocator.destroy(x),
+            .array => |x| {
+                x.elements.deinit();
+                allocator.destroy(x);
+            },
         }
         allocator.destroy(item);
     }

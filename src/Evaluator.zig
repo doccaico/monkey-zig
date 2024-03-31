@@ -152,6 +152,20 @@ pub fn eval(self: *Evaluator, node: *Ast.Node, env: *Environment) ?*Object.Objec
 
                     return new_obj;
                 },
+                .array_literal => |y| {
+                    const elements = self.evalExpressions(y.elements, env);
+                    if (elements.items.len == 1 and isError(elements.items[0])) {
+                        return elements.items[0];
+                    }
+
+                    const new_array_obj = self.allocator.create(Object.Array) catch @panic("OOM");
+                    new_array_obj.elements = elements;
+
+                    const new_obj = self.createObject();
+                    new_obj.* = Object.Object{ .array = new_array_obj };
+
+                    return new_obj;
+                },
                 else => {},
                 // else => unreachable,
             }
@@ -1052,5 +1066,43 @@ test "TestBuiltinFunctions" {
                 else => unreachable,
             }
         }
+    }
+}
+
+test "TestArrayLiterals" {
+    const input = "[1, 2 * 2, 3 + 3]";
+
+    Globals.init(std.testing.allocator);
+    defer Globals.deinit();
+
+    var env = Environment.init(std.testing.allocator);
+    defer env.deinit();
+
+    const lexer = Lexer.init(input);
+    var parser = try Parser.init(std.testing.allocator, lexer);
+    defer parser.deinit();
+    const node_program = parser.parseProgram();
+    defer Globals.nodeProgramAppend(node_program);
+
+    checkParserErrors(parser);
+
+    var evaluator = Evaluator.init(std.testing.allocator);
+
+    const result = evaluator.eval(node_program, env);
+
+    {
+        const expected: i64 = 1;
+        const actual = result.?.array.elements.items[0].integer.value;
+        try std.testing.expectEqual(expected, actual);
+    }
+    {
+        const expected: i64 = 4;
+        const actual = result.?.array.elements.items[1].integer.value;
+        try std.testing.expectEqual(expected, actual);
+    }
+    {
+        const expected: i64 = 6;
+        const actual = result.?.array.elements.items[2].integer.value;
+        try std.testing.expectEqual(expected, actual);
     }
 }
