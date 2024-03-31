@@ -391,7 +391,7 @@ fn evalIdentifier(self: *Evaluator, ident: *Ast.Identifier, env: *Environment) *
     if (value != null) {
         return value.?;
     }
-    const builtin = env.getBuiltinFunction(ident.value);
+    const builtin = Environment.getBuiltinFunction(ident.value);
     if (builtin != null) {
         return builtin.?;
     }

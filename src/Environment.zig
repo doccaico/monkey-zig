@@ -9,23 +9,24 @@ const Environment = @This();
 pub var TRUE: *Object.Object = undefined;
 pub var FALSE: *Object.Object = undefined;
 pub var NULL: *Object.Object = undefined;
+pub var builtins: std.StringHashMap(*Object.Object) = undefined;
 
 allocator: std.mem.Allocator,
 store: std.StringHashMap(*Object.Object),
 outer: ?*Environment,
-builtins: std.StringHashMap(*Object.Object),
 
 pub fn init(allocator: std.mem.Allocator) *Environment {
     TRUE = createObjectBoolean(allocator, true);
     FALSE = createObjectBoolean(allocator, false);
     NULL = createObjectNull(allocator);
 
+    builtins = Builtins.init(allocator);
+
     const env = allocator.create(Environment) catch @panic("OOM");
     env.* = Environment{
         .allocator = allocator,
         .store = std.StringHashMap(*Object.Object).init(allocator),
         .outer = null,
-        .builtins = Builtins.init(allocator),
     };
     Globals.envAppend(env);
     return env;
@@ -39,7 +40,7 @@ pub fn deinit(self: *Environment) void {
     self.allocator.destroy(NULL.null);
     self.allocator.destroy(NULL);
 
-    self.builtins.deinit();
+    builtins.deinit();
 }
 
 pub fn newEnclosedEnvironment(self: *Environment, outer: ?*Environment) *Environment {
@@ -65,8 +66,8 @@ pub fn set(self: *Environment, key: []const u8, value: *Object.Object) void {
     self.store.put(key, value) catch @panic("OOM");
 }
 
-pub fn getBuiltinFunction(self: *Environment, key: []const u8) ?*Object.Object {
-    return self.builtins.get(key);
+pub fn getBuiltinFunction(key: []const u8) ?*Object.Object {
+    return builtins.get(key);
 }
 
 fn createObjectBoolean(allocator: std.mem.Allocator, value: bool) *Object.Object {
