@@ -16,6 +16,7 @@ pub const Expression = union(enum(u8)) {
     call_expression: *CallExpression,
     string_literal: *StringLiteral,
     array_literal: *ArrayLiteral,
+    index_expression: *IndexExpression,
 
     pub fn tokenLiteral(self: Expression) []const u8 {
         return switch (self) {
@@ -234,5 +235,23 @@ pub const ArrayLiteral = struct {
             }
         }
         _ = try writer.write("]");
+    }
+};
+
+pub const IndexExpression = struct {
+    token: Token,
+    left: *Expression,
+    index: *Expression,
+
+    pub fn tokenLiteral(self: IndexExpression) []const u8 {
+        return self.token.literal;
+    }
+
+    pub fn string(self: IndexExpression, writer: anytype) !void {
+        _ = try writer.write("(");
+        try self.left.string(writer);
+        _ = try writer.write("[");
+        try self.index.string(writer);
+        _ = try writer.write("])");
     }
 };

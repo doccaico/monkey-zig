@@ -154,6 +154,12 @@ pub const Node = union(enum) {
                 allocator.destroy(x);
                 allocator.destroy(expr);
             },
+            .index_expression => |x| {
+                freeExpressionPointer(allocator, x.left);
+                freeExpressionPointer(allocator, x.index);
+                allocator.destroy(x);
+                allocator.destroy(expr);
+            },
             else => {},
         }
     }
