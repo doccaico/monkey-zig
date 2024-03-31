@@ -55,6 +55,7 @@ pub fn nextToken(self: *Lexer) Token {
         ')' => token = Token{ .type = .rparen, .literal = ")" },
         '{' => token = Token{ .type = .lbrace, .literal = "{" },
         '}' => token = Token{ .type = .rbrace, .literal = "}" },
+        '"' => token = Token{ .type = .string, .literal = self.readString() },
         0 => token = Token{ .type = .eof, .literal = "" },
         else => {
             if (isLetter(self.ch)) {
@@ -98,6 +99,17 @@ fn readNumber(self: *Lexer) []const u8 {
     const position = self.position;
     while (isDigit(self.ch)) {
         self.readChar();
+    }
+    return self.input[position..self.position];
+}
+
+fn readString(self: *Lexer) []const u8 {
+    const position = self.position + 1;
+    while (true) {
+        self.readChar();
+        if (self.ch == '"') {
+            break;
+        }
     }
     return self.input[position..self.position];
 }
@@ -322,5 +334,37 @@ test "nextToken() - 5" {
             std.debug.print("expected {?}, got {?}\n", .{ expected, got });
             return e;
         };
+    }
+}
+
+test "nextToken() - string" {
+    const Test = struct {
+        Token.TokenType,
+        []const u8,
+    };
+    const input =
+        \\"foobar"
+        \\"foo bar"
+    ;
+    const tests = [_]Test{
+        .{ .string, "foobar" },
+        .{ .string, "foo bar" },
+        .{ .eof, "" },
+    };
+
+    var lexer = Lexer.init(input);
+
+    for (tests) |t| {
+        const result = lexer.nextToken();
+        {
+            const expected = t[0];
+            const actual = result.type;
+            try std.testing.expectEqual(expected, actual);
+        }
+        {
+            const expected = t[1];
+            const actual = result.literal;
+            try std.testing.expectEqualStrings(expected, actual);
+        }
     }
 }

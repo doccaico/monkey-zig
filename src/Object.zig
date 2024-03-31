@@ -15,6 +15,7 @@ pub const NULL_OBJ: ObjectType = "NULL";
 pub const RETURN_VALUE_OBJ: ObjectType = "RETURN_VALUE";
 pub const ERROR_OBJ: ObjectType = "ERROR";
 pub const FUNCTION_OBJ: ObjectType = "FUNCTION";
+pub const STRING_OBJ: ObjectType = "STRING";
 
 pub const Object = union(enum(u8)) {
     integer: *Integer,
@@ -23,6 +24,7 @@ pub const Object = union(enum(u8)) {
     return_value: *ReturnValue,
     @"error": *Error,
     function: *Function,
+    string: *String,
 
     pub fn inspect(self: Object, writer: anytype) !void {
         switch (self) {
@@ -119,5 +121,17 @@ pub const Function = struct {
 
     pub fn getType(_: Function) ObjectType {
         return FUNCTION_OBJ;
+    }
+};
+
+pub const String = struct {
+    value: []const u8,
+
+    pub fn inspect(self: String, writer: anytype) !void {
+        _ = try writer.write(self.value);
+    }
+
+    pub fn getType(_: String) ObjectType {
+        return STRING_OBJ;
     }
 };

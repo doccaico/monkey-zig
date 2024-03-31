@@ -14,6 +14,7 @@ pub const Expression = union(enum(u8)) {
     if_expression: *IfExpression,
     function_literal: *FunctionLiteral,
     call_expression: *CallExpression,
+    string_literal: *StringLiteral,
 
     pub fn tokenLiteral(self: Expression) []const u8 {
         return switch (self) {
@@ -45,7 +46,6 @@ pub const Identifier = struct {
 
 pub const IntegerLiteral = struct {
     token: Token,
-    allocator: std.mem.Allocator,
     value: i64,
 
     pub fn tokenLiteral(self: IntegerLiteral) []const u8 {
@@ -199,5 +199,18 @@ pub const CallExpression = struct {
             }
         }
         _ = try writer.write(")");
+    }
+};
+
+pub const StringLiteral = struct {
+    token: Token,
+    value: []const u8,
+
+    pub fn tokenLiteral(self: StringLiteral) []const u8 {
+        return self.token.literal;
+    }
+
+    pub fn string(self: StringLiteral, writer: anytype) !void {
+        _ = try writer.write(self.token.literal);
     }
 };

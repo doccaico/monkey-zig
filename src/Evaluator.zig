@@ -142,6 +142,15 @@ pub fn eval(self: *Evaluator, node: *Ast.Node, env: *Environment) ?*Object.Objec
                     }
                     return self.applyFunction(env, result.?, args);
                 },
+                .string_literal => |y| {
+                    const new_string_obj = self.createObjectString();
+                    new_string_obj.value = y.value;
+
+                    const new_obj = self.createObject();
+                    new_obj.* = Object.Object{ .string = new_string_obj };
+
+                    return new_obj;
+                },
                 else => {},
                 // else => unreachable,
             }
@@ -236,6 +245,10 @@ fn evalInfixExpression(self: *Evaluator, op: []const u8, left: *Object.Object, r
         std.mem.eql(u8, right.getType(), Object.INTEGER_OBJ))
     {
         return self.evalIntegerInfixExpression(op, left, right);
+    } else if (std.mem.eql(u8, left.getType(), Object.STRING_OBJ) and
+        std.mem.eql(u8, right.getType(), Object.STRING_OBJ))
+    {
+        return self.evalStringInfixExpression(op, left, right);
     } else if (std.mem.eql(u8, op, "==")) {
         return nativeBoolToBooleanObject(left.boolean.value == right.boolean.value);
     } else if (std.mem.eql(u8, op, "!=")) {
@@ -301,6 +314,24 @@ fn evalIntegerInfixExpression(self: *Evaluator, op: []const u8, left: *Object.Ob
             return self.createError("unknown operator: {s} {s} {s}", .{ left.getType(), op, right.getType() });
         },
     }
+}
+
+fn evalStringInfixExpression(self: *Evaluator, op: []const u8, left: *Object.Object, right: *Object.Object) *Object.Object {
+    if (!std.mem.eql(u8, op, "+")) {
+        return self.createError("unknown operator: {s} {s} {s}", .{ left.getType(), op, right.getType() });
+    }
+
+    const slice = &[_][]const u8{ left.string.value, right.string.value };
+    const s = std.mem.concat(self.allocator, u8, slice) catch @panic("OOM");
+    Globals.stringAppend(s);
+
+    const new_string_obj = self.createObjectString();
+    new_string_obj.value = s;
+
+    const new_obj = self.createObject();
+    new_obj.* = Object.Object{ .string = new_string_obj };
+
+    return new_obj;
 }
 
 fn evalIfExpression(self: *Evaluator, ie: *Ast.IfExpression, env: *Environment) *Object.Object {
@@ -419,6 +450,11 @@ fn createObjectReturnValue(self: Evaluator) *Object.ReturnValue {
 
 fn createObjectFunction(self: Evaluator) *Object.Function {
     const new_obj = self.allocator.create(Object.Function) catch @panic("OOM");
+    return new_obj;
+}
+
+fn createObjectString(self: Evaluator) *Object.String {
+    const new_obj = self.allocator.create(Object.String) catch @panic("OOM");
     return new_obj;
 }
 
@@ -723,6 +759,10 @@ test "TestErrorHandling" {
             "foobar",
             "identifier not found: foobar",
         },
+        .{
+            "\"Hello\" - \"World\"",
+            "unknown operator: STRING - STRING",
+        },
     };
 
     Globals.init(std.testing.allocator);
@@ -907,5 +947,65 @@ test "TestClosures" {
         const expected: i64 = 4;
         const actual = result.?.integer.value;
         try std.testing.expectEqual(expected, actual);
+    }
+}
+
+test "TestStringLiteral" {
+    const input =
+        \\"Hello World!"
+    ;
+
+    Globals.init(std.testing.allocator);
+    defer Globals.deinit();
+
+    var env = Environment.init(std.testing.allocator);
+    defer env.deinit();
+
+    const lexer = Lexer.init(input);
+    var parser = try Parser.init(std.testing.allocator, lexer);
+    defer parser.deinit();
+    const node_program = parser.parseProgram();
+    defer Globals.nodeProgramAppend(node_program);
+
+    checkParserErrors(parser);
+
+    var evaluator = Evaluator.init(std.testing.allocator);
+
+    const result = evaluator.eval(node_program, env);
+
+    {
+        const expected = "Hello World!";
+        const actual = result.?.string.value;
+        try std.testing.expectEqualStrings(expected, actual);
+    }
+}
+
+test "TestStringConcatenation" {
+    const input =
+        \\"Hello" + " " + "World!";
+    ;
+
+    Globals.init(std.testing.allocator);
+    defer Globals.deinit();
+
+    var env = Environment.init(std.testing.allocator);
+    defer env.deinit();
+
+    const lexer = Lexer.init(input);
+    var parser = try Parser.init(std.testing.allocator, lexer);
+    defer parser.deinit();
+    const node_program = parser.parseProgram();
+    defer Globals.nodeProgramAppend(node_program);
+
+    checkParserErrors(parser);
+
+    var evaluator = Evaluator.init(std.testing.allocator);
+
+    const result = evaluator.eval(node_program, env);
+
+    {
+        const expected = "Hello World!";
+        const actual = result.?.string.value;
+        try std.testing.expectEqualStrings(expected, actual);
     }
 }

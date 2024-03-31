@@ -58,6 +58,7 @@ pub fn init(allocator: std.mem.Allocator, lexer: Lexer) !Parser {
     try parser.registerPrefix(.lparen, parseGroupedExpression);
     try parser.registerPrefix(.@"if", parseIfExpression);
     try parser.registerPrefix(.function, parseFunctionLiteral);
+    try parser.registerPrefix(.string, parseStringLiteral);
 
     try parser.registerInfix(.plus, parseInfixExpression);
     try parser.registerInfix(.minus, parseInfixExpression);
@@ -447,6 +448,16 @@ fn parseCallArguments(self: *Parser, args: *std.ArrayList(*Ast.Expression)) void
         // what is this ??
         _ = self.peekExpressionError(.rparen);
     }
+}
+
+fn parseStringLiteral(self: *Parser) *Ast.Expression {
+    const s = self.allocator.create(Ast.StringLiteral) catch @panic("OOM");
+    s.token = self.cur_token;
+    s.value = self.cur_token.literal;
+
+    const e = self.allocator.create(Ast.Expression) catch @panic("OOM");
+    e.* = Ast.Expression{ .string_literal = s };
+    return e;
 }
 
 // Errors
@@ -1076,5 +1087,25 @@ test "TestCallExpressionParsing" {
             const actual = infix_expr.right.tokenLiteral();
             try std.testing.expectEqualStrings(expected, actual);
         }
+    }
+}
+
+test "TestStringLiteralExpression" {
+    const input = "\"hello world\"";
+
+    const lexer = Lexer.init(input);
+    var parser = try Parser.init(std.testing.allocator, lexer);
+    defer parser.deinit();
+    var node = parser.parseProgram();
+    defer node.deinit();
+
+    checkParserErrors(parser);
+
+    const stmt = node.program.statements.items[0];
+    const literal = stmt.expression_statement.expression.string_literal;
+    {
+        const expected = "hello world";
+        const actual = literal.value;
+        try std.testing.expectEqualStrings(expected, actual);
     }
 }

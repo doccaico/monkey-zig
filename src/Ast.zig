@@ -142,6 +142,10 @@ pub const Node = union(enum) {
                 allocator.destroy(x);
                 allocator.destroy(expr);
             },
+            .string_literal => |x| {
+                allocator.destroy(x);
+                allocator.destroy(expr);
+            },
             else => {},
         }
     }

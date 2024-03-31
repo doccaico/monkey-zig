@@ -11,7 +11,7 @@ pub var env_list: std.ArrayList(*Environment) = undefined;
 pub var args_list: std.ArrayList(std.ArrayList(*Object.Object)) = undefined;
 pub var node_program_list: std.ArrayList(*Ast.Node) = undefined;
 pub var line_list: std.ArrayList([]const u8) = undefined;
-
+pub var string_list: std.ArrayList([]const u8) = undefined;
 pub fn init(global_allocator: std.mem.Allocator) void {
     allocator = global_allocator;
     node_list = std.ArrayList(*Ast.Node).init(allocator);
@@ -20,6 +20,7 @@ pub fn init(global_allocator: std.mem.Allocator) void {
     args_list = std.ArrayList(std.ArrayList(*Object.Object)).init(allocator);
     node_program_list = std.ArrayList(*Ast.Node).init(allocator);
     line_list = std.ArrayList([]const u8).init(allocator);
+    string_list = std.ArrayList([]const u8).init(allocator);
 }
 
 pub fn deinit() void {
@@ -34,9 +35,8 @@ pub fn deinit() void {
                 allocator.free(x.message);
                 allocator.destroy(x);
             },
-            .function => |x| {
-                allocator.destroy(x);
-            },
+            .function => |x| allocator.destroy(x),
+            .string => |x| allocator.destroy(x),
         }
         allocator.destroy(item);
     }
@@ -69,6 +69,12 @@ pub fn deinit() void {
 
     // line_list
     line_list.deinit();
+
+    // string_list
+    for (string_list.items) |item| {
+        allocator.free(item);
+    }
+    string_list.deinit();
 }
 
 pub fn nodeAppend(node: *Ast.Node) void {
@@ -93,4 +99,8 @@ pub fn nodeProgramAppend(node_program: *Ast.Node) void {
 
 pub fn lineAppend(line: []const u8) void {
     line_list.append(line) catch @panic("OOM");
+}
+
+pub fn stringAppend(string: []const u8) void {
+    string_list.append(string) catch @panic("OOM");
 }
