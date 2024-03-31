@@ -146,6 +146,14 @@ pub const Node = union(enum) {
                 allocator.destroy(x);
                 allocator.destroy(expr);
             },
+            .array_literal => |x| {
+                for (x.elements.items) |elem| {
+                    freeExpressionPointer(allocator, elem);
+                }
+                x.elements.deinit();
+                allocator.destroy(x);
+                allocator.destroy(expr);
+            },
             else => {},
         }
     }

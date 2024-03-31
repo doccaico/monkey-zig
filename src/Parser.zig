@@ -59,6 +59,7 @@ pub fn init(allocator: std.mem.Allocator, lexer: Lexer) !Parser {
     try parser.registerPrefix(.@"if", parseIfExpression);
     try parser.registerPrefix(.function, parseFunctionLiteral);
     try parser.registerPrefix(.string, parseStringLiteral);
+    try parser.registerPrefix(.lbracket, parseArrayLiteral);
 
     try parser.registerInfix(.plus, parseInfixExpression);
     try parser.registerInfix(.minus, parseInfixExpression);
@@ -418,7 +419,7 @@ fn parseFunctionParameters(self: *Parser, params: *std.ArrayList(*Ast.Identifier
 
 fn parseCallExpression(self: *Parser, function: *Ast.Expression) *Ast.Expression {
     var call_expr = Ast.CallExpression.init(self.allocator, self.cur_token, function);
-    self.parseCallArguments(&call_expr.arguments);
+    call_expr.arguments = self.parseExpressionList(.rparen);
 
     const e = self.allocator.create(Ast.Expression) catch @panic("OOM");
     e.* = Ast.Expression{ .call_expression = call_expr };
@@ -445,8 +446,7 @@ fn parseCallArguments(self: *Parser, args: *std.ArrayList(*Ast.Expression)) void
     if (self.nextTokenIs(.rparen)) {
         self.nextToken();
     } else {
-        // what is this ??
-        _ = self.peekExpressionError(.rparen);
+        return self.peekExpressionError(.rparen);
     }
 }
 
@@ -458,6 +458,42 @@ fn parseStringLiteral(self: *Parser) *Ast.Expression {
     const e = self.allocator.create(Ast.Expression) catch @panic("OOM");
     e.* = Ast.Expression{ .string_literal = s };
     return e;
+}
+
+fn parseArrayLiteral(self: *Parser) *Ast.Expression {
+    const a = self.allocator.create(Ast.ArrayLiteral) catch @panic("OOM");
+    a.token = self.cur_token;
+
+    a.elements = self.parseExpressionList(.rbracket);
+
+    const e = self.allocator.create(Ast.Expression) catch @panic("OOM");
+    e.* = Ast.Expression{ .array_literal = a };
+    return e;
+}
+
+fn parseExpressionList(self: *Parser, end: TokenType) std.ArrayList(*Ast.Expression) {
+    var list = std.ArrayList(*Ast.Expression).init(self.allocator);
+
+    if (self.nextTokenIs(end)) {
+        self.nextToken();
+        return list;
+    }
+
+    self.nextToken();
+    list.append(self.parseExpression(.lowest)) catch @panic("OOM");
+
+    while (self.nextTokenIs(.comma)) {
+        self.nextToken();
+        self.nextToken();
+        list.append(self.parseExpression(.lowest)) catch @panic("OOM");
+    }
+
+    if (self.nextTokenIs(end)) {
+        self.nextToken();
+    } else {
+        _ = self.peekExpressionError(end);
+    }
+    return list;
 }
 
 // Errors
@@ -1090,8 +1126,16 @@ test "TestCallExpressionParsing" {
     }
 }
 
-test "TestStringLiteralExpression" {
-    const input = "\"hello world\"";
+test "TestParsingArrayLiterals" {
+    const S = struct {
+        fn testInfixExpression(expr: *Ast.Expression, a: i64, b: []const u8, c: i64) !void {
+            const e = expr.infix_expression;
+            try std.testing.expectEqual(e.left.integer_literal.value, a);
+            try std.testing.expectEqualStrings(e.operator, b);
+            try std.testing.expectEqual(e.right.integer_literal.value, c);
+        }
+    };
+    const input = "[1, 2 * 2, 3 + 3]";
 
     const lexer = Lexer.init(input);
     var parser = try Parser.init(std.testing.allocator, lexer);
@@ -1102,10 +1146,13 @@ test "TestStringLiteralExpression" {
     checkParserErrors(parser);
 
     const stmt = node.program.statements.items[0];
-    const literal = stmt.expression_statement.expression.string_literal;
+    const array = stmt.expression_statement.expression.array_literal;
+
+    try std.testing.expectEqual(@as(usize, 3), array.elements.items.len);
+
     {
-        const expected = "hello world";
-        const actual = literal.value;
-        try std.testing.expectEqualStrings(expected, actual);
+        try std.testing.expectEqual(array.elements.items[0].integer_literal.value, 1);
+        try S.testInfixExpression(array.elements.items[1], 2, "*", 2);
+        try S.testInfixExpression(array.elements.items[2], 3, "+", 3);
     }
 }

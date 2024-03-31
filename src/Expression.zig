@@ -15,6 +15,7 @@ pub const Expression = union(enum(u8)) {
     function_literal: *FunctionLiteral,
     call_expression: *CallExpression,
     string_literal: *StringLiteral,
+    array_literal: *ArrayLiteral,
 
     pub fn tokenLiteral(self: Expression) []const u8 {
         return switch (self) {
@@ -212,5 +213,26 @@ pub const StringLiteral = struct {
 
     pub fn string(self: StringLiteral, writer: anytype) !void {
         _ = try writer.write(self.token.literal);
+    }
+};
+
+pub const ArrayLiteral = struct {
+    token: Token,
+    elements: std.ArrayList(*Expression),
+
+    pub fn tokenLiteral(self: ArrayLiteral) []const u8 {
+        return self.token.literal;
+    }
+
+    pub fn string(self: ArrayLiteral, writer: anytype) !void {
+        _ = try writer.write("[");
+        const size = self.arguments.items.len;
+        for (self.elements.items, 0..) |arg, i| {
+            try arg.string(writer);
+            if (i < size - 1) {
+                _ = try writer.write(", ");
+            }
+        }
+        _ = try writer.write("]");
     }
 };

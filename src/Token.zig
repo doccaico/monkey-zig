@@ -33,6 +33,8 @@ pub const TokenType = enum(u8) {
     rparen, // )
     lbrace, // {
     rbrace, // }
+    lbracket, // [
+    rbracket, // ]
 
     // Keywords
     function, // fn
