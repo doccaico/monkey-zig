@@ -12,6 +12,7 @@ pub var args_list: std.ArrayList(std.ArrayList(*Object.Object)) = undefined;
 pub var node_program_list: std.ArrayList(*Ast.Node) = undefined;
 pub var line_list: std.ArrayList([]const u8) = undefined;
 pub var string_list: std.ArrayList([]const u8) = undefined;
+
 pub fn init(global_allocator: std.mem.Allocator) void {
     allocator = global_allocator;
     node_list = std.ArrayList(*Ast.Node).init(allocator);

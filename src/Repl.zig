@@ -1,12 +1,10 @@
 const builtin = @import("builtin");
 const std = @import("std");
 
-const Ast = @import("Ast.zig");
 const Environment = @import("Environment.zig");
 const Evaluator = @import("Evaluator.zig");
 const Globals = @import("Globals.zig");
 const Lexer = @import("Lexer.zig");
-const Object = @import("Object.zig");
 const Parser = @import("Parser.zig");
 
 const checkParserErrors = Parser.checkParserErrors;
