@@ -41,7 +41,7 @@ pub fn eval(self: *Evaluator, node: *Ast.Node, env: *Environment) ?*Object.Objec
                         return result;
                     }
 
-                    const new_return_value_obj = self.createObjectReturnValue();
+                    const new_return_value_obj = self.allocator.create(Object.ReturnValue) catch @panic("OOM");
                     new_return_value_obj.value = result.?;
 
                     const new_obj = self.createObject();
@@ -71,7 +71,7 @@ pub fn eval(self: *Evaluator, node: *Ast.Node, env: *Environment) ?*Object.Objec
         .expression => |x| {
             switch (x.*) {
                 .integer_literal => |y| {
-                    const new_integer_obj = self.createObjectInteger();
+                    const new_integer_obj = self.allocator.create(Object.Integer) catch @panic("OOM");
                     new_integer_obj.value = y.value;
 
                     const new_obj = self.createObject();
@@ -119,7 +119,7 @@ pub fn eval(self: *Evaluator, node: *Ast.Node, env: *Environment) ?*Object.Objec
                     return self.evalIdentifier(y, env);
                 },
                 .function_literal => |y| {
-                    const new_function_obj = self.createObjectFunction();
+                    const new_function_obj = self.allocator.create(Object.Function) catch @panic("OOM");
                     new_function_obj.parameters = y.parameters;
                     new_function_obj.body = y.body;
                     new_function_obj.env = env;
@@ -144,7 +144,7 @@ pub fn eval(self: *Evaluator, node: *Ast.Node, env: *Environment) ?*Object.Objec
                     return self.applyFunction(env, result.?, args);
                 },
                 .string_literal => |y| {
-                    const new_string_obj = self.createObjectString();
+                    const new_string_obj = self.allocator.create(Object.String) catch @panic("OOM");
                     new_string_obj.value = y.value;
 
                     const new_obj = self.createObject();
@@ -201,7 +201,7 @@ fn evalBlockStatement(self: *Evaluator, bs: *Ast.BlockStatement, env: *Environme
 }
 
 fn evalIntegerLiteral(self: *Evaluator, il: *Ast.IntegerLiteral) *Object.Object {
-    const new_integer_obj = self.createObjectInteger();
+    const new_integer_obj = self.allocator.create(Object.Integer) catch @panic("OOM");
     new_integer_obj.value = il.value;
 
     const new_obj = self.createObject();
@@ -233,7 +233,7 @@ fn evalPrefixMinusExpression(self: *Evaluator, right: *Object.Object) *Object.Ob
 
     const value = right.integer.value;
 
-    const new_integer_obj = self.createObjectInteger();
+    const new_integer_obj = self.allocator.create(Object.Integer) catch @panic("OOM");
     new_integer_obj.value = -value;
 
     const new_obj = self.createObject();
@@ -264,7 +264,7 @@ fn evalInfixExpression(self: *Evaluator, op: []const u8, left: *Object.Object, r
 fn evalIntegerInfixExpression(self: *Evaluator, op: []const u8, left: *Object.Object, right: *Object.Object) *Object.Object {
     switch (op[0]) {
         '+' => {
-            const new_integer_obj = self.createObjectInteger();
+            const new_integer_obj = self.allocator.create(Object.Integer) catch @panic("OOM");
             new_integer_obj.value = left.integer.value + right.integer.value;
 
             const new_obj = self.createObject();
@@ -273,7 +273,7 @@ fn evalIntegerInfixExpression(self: *Evaluator, op: []const u8, left: *Object.Ob
             return new_obj;
         },
         '-' => {
-            const new_integer_obj = self.createObjectInteger();
+            const new_integer_obj = self.allocator.create(Object.Integer) catch @panic("OOM");
             new_integer_obj.value = left.integer.value - right.integer.value;
 
             const new_obj = self.createObject();
@@ -282,7 +282,7 @@ fn evalIntegerInfixExpression(self: *Evaluator, op: []const u8, left: *Object.Ob
             return new_obj;
         },
         '*' => {
-            const new_integer_obj = self.createObjectInteger();
+            const new_integer_obj = self.allocator.create(Object.Integer) catch @panic("OOM");
             new_integer_obj.value = left.integer.value * right.integer.value;
 
             const new_obj = self.createObject();
@@ -291,7 +291,7 @@ fn evalIntegerInfixExpression(self: *Evaluator, op: []const u8, left: *Object.Ob
             return new_obj;
         },
         '/' => {
-            const new_integer_obj = self.createObjectInteger();
+            const new_integer_obj = self.allocator.create(Object.Integer) catch @panic("OOM");
             new_integer_obj.value = @divTrunc(left.integer.value, right.integer.value);
 
             const new_obj = self.createObject();
@@ -326,7 +326,7 @@ fn evalStringInfixExpression(self: *Evaluator, op: []const u8, left: *Object.Obj
     const s = std.mem.concat(self.allocator, u8, slice) catch @panic("OOM");
     Globals.stringAppend(s);
 
-    const new_string_obj = self.createObjectString();
+    const new_string_obj = self.allocator.create(Object.String) catch @panic("OOM");
     new_string_obj.value = s;
 
     const new_obj = self.createObject();
@@ -379,18 +379,6 @@ fn evalExpressions(self: *Evaluator, exps: std.ArrayList(*Ast.Expression), env: 
     }
     return result;
 }
-
-// fn applyFunction(self: *Evaluator, env: *Environment, func: *Object.Object, args: std.ArrayList(*Object.Object)) *Object.Object {
-//     const function = switch (func.*) {
-//         .function => func.function,
-//         else => return self.createError("not a function: {s}", .{func.getType()}),
-//     };
-//
-//     const extended_env = extendFunctionEnv(env, function, args);
-//     const evaluated = self.evalBlockStatement(function.body, extended_env);
-//
-//     return unwrapReturnValue(evaluated);
-// }
 
 fn applyFunction(self: *Evaluator, env: *Environment, func: *Object.Object, args: std.ArrayList(*Object.Object)) *Object.Object {
     switch (func.*) {
@@ -458,26 +446,6 @@ fn createNode(self: *Evaluator) *Ast.Node {
 fn createObject(self: *Evaluator) *Object.Object {
     const new_obj = self.allocator.create(Object.Object) catch @panic("OOM");
     Globals.objectAppend(new_obj);
-    return new_obj;
-}
-
-fn createObjectInteger(self: Evaluator) *Object.Integer {
-    const new_obj = self.allocator.create(Object.Integer) catch @panic("OOM");
-    return new_obj;
-}
-
-fn createObjectReturnValue(self: Evaluator) *Object.ReturnValue {
-    const new_obj = self.allocator.create(Object.ReturnValue) catch @panic("OOM");
-    return new_obj;
-}
-
-fn createObjectFunction(self: Evaluator) *Object.Function {
-    const new_obj = self.allocator.create(Object.Function) catch @panic("OOM");
-    return new_obj;
-}
-
-fn createObjectString(self: Evaluator) *Object.String {
-    const new_obj = self.allocator.create(Object.String) catch @panic("OOM");
     return new_obj;
 }
 
