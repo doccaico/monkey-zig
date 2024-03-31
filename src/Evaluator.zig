@@ -166,6 +166,26 @@ pub fn eval(self: *Evaluator, node: *Ast.Node, env: *Environment) ?*Object.Objec
 
                     return new_obj;
                 },
+                .index_expression => |y| {
+                    // left
+                    const new_left_node = self.createNode();
+                    new_left_node.* = Ast.Node{ .expression = y.left };
+
+                    const left = self.eval(new_left_node, env);
+                    if (isError(left)) {
+                        return left;
+                    }
+                    // index
+                    const new_index_node = self.createNode();
+                    new_index_node.* = Ast.Node{ .expression = y.index };
+
+                    const index = self.eval(new_index_node, env);
+                    if (isError(index)) {
+                        return index;
+                    }
+
+                    return self.evalIndexExpression(left.?, index.?);
+                },
                 else => {},
                 // else => unreachable,
             }
@@ -423,6 +443,29 @@ fn unwrapReturnValue(obj: *Object.Object) *Object.Object {
     };
 }
 
+fn evalIndexExpression(self: *Evaluator, left: *Object.Object, index: *Object.Object) *Object.Object {
+    if (std.mem.eql(u8, left.getType(), Object.ARRAY_OBJ) and
+        std.mem.eql(u8, index.getType(), Object.INTEGER_OBJ))
+    {
+        return evalArrayIndexExpression(left, index);
+    } else {
+        return self.createError("index operator not supported: {s}", .{left.getType()});
+    }
+}
+
+fn evalArrayIndexExpression(array: *Object.Object, index: *Object.Object) *Object.Object {
+    const array_obj = array.array;
+    const idx = index.integer.value;
+    const max: i64 = @intCast(array_obj.elements.items.len - 1);
+
+    if (idx < 0 or idx > max) {
+        return Environment.NULL;
+    }
+
+    return array_obj.elements.items[@intCast(idx)];
+    // return array_obj.elements.items[idx];
+}
+
 fn isTruthy(obj: *Object.Object) bool {
     if (obj == Environment.NULL) {
         return false;
@@ -627,22 +670,19 @@ test "TestBangOperator" {
 }
 
 test "TestIfElseExpressions" {
-    const Types1 = union(enum) {
-        null: *Object.Object,
-        integer: i64,
-    };
+    const null_value = -256;
     const Test = struct {
         []const u8,
-        Types1,
+        i64,
     };
     const tests = [_]Test{
-        .{ "if (true) { 10 }", .{ .integer = 10 } },
-        .{ "if (false) { 10 }", .{ .null = Environment.NULL } },
-        .{ "if (1) { 10 }", .{ .integer = 10 } },
-        .{ "if (1 < 2) { 10 }", .{ .integer = 10 } },
-        .{ "if (1 > 2) { 10 }", .{ .null = Environment.NULL } },
-        .{ "if (1 > 2) { 10 } else { 20 }", .{ .integer = 20 } },
-        .{ "if (1 < 2) { 10 } else { 20 }", .{ .integer = 10 } },
+        .{ "if (true) { 10 }", 10 },
+        .{ "if (false) { 10 }", null_value },
+        .{ "if (1) { 10 }", 10 },
+        .{ "if (1 < 2) { 10 }", 10 },
+        .{ "if (1 > 2) { 10 }", null_value },
+        .{ "if (1 > 2) { 10 } else { 20 }", 20 },
+        .{ "if (1 < 2) { 10 } else { 20 }", 10 },
     };
 
     Globals.init(std.testing.allocator);
@@ -669,11 +709,10 @@ test "TestIfElseExpressions" {
             switch (result.?.*) {
                 .integer => |x| {
                     const actual = x.value;
-                    try std.testing.expectEqual(expected.integer, actual);
+                    try std.testing.expectEqual(expected, actual);
                 },
-                .null => |x| {
-                    const actual = x;
-                    try std.testing.expectEqual(Environment.NULL.null, actual);
+                .null => {
+                    try std.testing.expectEqual(expected, null_value);
                 },
                 else => unreachable,
             }
@@ -1104,5 +1143,89 @@ test "TestArrayLiterals" {
         const expected: i64 = 6;
         const actual = result.?.array.elements.items[2].integer.value;
         try std.testing.expectEqual(expected, actual);
+    }
+}
+
+test "TestArrayIndexExpressions" {
+    const null_value = -256;
+    const Test = struct {
+        []const u8,
+        i64,
+    };
+    const tests = [_]Test{
+        .{
+            "[1, 2, 3][0]",
+            1,
+        },
+        .{
+            "[1, 2, 3][1]",
+            2,
+        },
+        .{
+            "[1, 2, 3][2]",
+            3,
+        },
+        .{
+            "let i = 0; [1][i];",
+            1,
+        },
+        .{
+            "[1, 2, 3][1 + 1];",
+            3,
+        },
+        .{
+            "let myArray = [1, 2, 3]; myArray[2];",
+            3,
+        },
+        .{
+            "let myArray = [1, 2, 3]; myArray[0] + myArray[1] + myArray[2];",
+            6,
+        },
+        .{
+            "let myArray = [1, 2, 3]; let i = myArray[0]; myArray[i]",
+            2,
+        },
+        .{
+            "[1, 2, 3][3]",
+            null_value,
+        },
+        .{
+            "[1, 2, 3][-1]",
+            null_value,
+        },
+    };
+
+    Globals.init(std.testing.allocator);
+    defer Globals.deinit();
+
+    var env = Environment.init(std.testing.allocator);
+    defer env.deinit();
+
+    for (tests) |t| {
+        const lexer = Lexer.init(t[0]);
+        var parser = try Parser.init(std.testing.allocator, lexer);
+        defer parser.deinit();
+        const node_program = parser.parseProgram();
+        defer Globals.nodeProgramAppend(node_program);
+
+        checkParserErrors(parser);
+
+        var evaluator = Evaluator.init(std.testing.allocator);
+
+        const result = evaluator.eval(node_program, env);
+
+        {
+            const expected = t[1];
+            switch (result.?.*) {
+                .integer => |x| {
+                    const actual = x.value;
+                    try std.testing.expectEqual(expected, actual);
+                },
+                .null => {
+                    try std.testing.expectEqual(expected, null_value);
+                },
+                else => unreachable,
+            }
+        }
     }
 }
