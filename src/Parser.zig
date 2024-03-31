@@ -1126,6 +1126,26 @@ test "TestCallExpressionParsing" {
     }
 }
 
+test "TestStringLiteralExpression" {
+    const input = "\"hello world\"";
+
+    const lexer = Lexer.init(input);
+    var parser = try Parser.init(std.testing.allocator, lexer);
+    defer parser.deinit();
+    var node = parser.parseProgram();
+    defer node.deinit();
+
+    checkParserErrors(parser);
+
+    const stmt = node.program.statements.items[0];
+    const literal = stmt.expression_statement.expression.string_literal;
+    {
+        const expected = "hello world";
+        const actual = literal.value;
+        try std.testing.expectEqualStrings(expected, actual);
+    }
+}
+
 test "TestParsingArrayLiterals" {
     const S = struct {
         fn testInfixExpression(expr: *Ast.Expression, a: i64, b: []const u8, c: i64) !void {

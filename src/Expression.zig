@@ -226,7 +226,7 @@ pub const ArrayLiteral = struct {
 
     pub fn string(self: ArrayLiteral, writer: anytype) !void {
         _ = try writer.write("[");
-        const size = self.arguments.items.len;
+        const size = self.elements.items.len;
         for (self.elements.items, 0..) |arg, i| {
             try arg.string(writer);
             if (i < size - 1) {
