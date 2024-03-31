@@ -1,5 +1,6 @@
 const std = @import("std");
 
+const Builtins = @import("Builtins.zig");
 const Environment = @import("Environment.zig");
 const Globals = @import("Globals.zig");
 const Lexer = @import("Lexer.zig");
@@ -352,7 +353,15 @@ fn evalIfExpression(self: *Evaluator, ie: *Ast.IfExpression, env: *Environment) 
 }
 
 fn evalIdentifier(self: *Evaluator, ident: *Ast.Identifier, env: *Environment) *Object.Object {
-    return env.get(ident.value) orelse self.createError("identifier not found: {s}", .{ident.value});
+    const value = env.get(ident.value);
+    if (value != null) {
+        return value.?;
+    }
+    const builtin = env.getBuiltinFunction(ident.value);
+    if (builtin != null) {
+        return builtin.?;
+    }
+    return self.createError("identifier not found: {s}", .{ident.value});
 }
 
 fn evalExpressions(self: *Evaluator, exps: std.ArrayList(*Ast.Expression), env: *Environment) std.ArrayList(*Object.Object) {
@@ -371,16 +380,30 @@ fn evalExpressions(self: *Evaluator, exps: std.ArrayList(*Ast.Expression), env: 
     return result;
 }
 
+// fn applyFunction(self: *Evaluator, env: *Environment, func: *Object.Object, args: std.ArrayList(*Object.Object)) *Object.Object {
+//     const function = switch (func.*) {
+//         .function => func.function,
+//         else => return self.createError("not a function: {s}", .{func.getType()}),
+//     };
+//
+//     const extended_env = extendFunctionEnv(env, function, args);
+//     const evaluated = self.evalBlockStatement(function.body, extended_env);
+//
+//     return unwrapReturnValue(evaluated);
+// }
+
 fn applyFunction(self: *Evaluator, env: *Environment, func: *Object.Object, args: std.ArrayList(*Object.Object)) *Object.Object {
-    const function = switch (func.*) {
-        .function => func.function,
+    switch (func.*) {
+        .function => |x| {
+            const extended_env = extendFunctionEnv(env, x, args);
+            const evaluated = self.evalBlockStatement(x.body, extended_env);
+            return unwrapReturnValue(evaluated);
+        },
+        .builtin => |x| {
+            return x.function(args);
+        },
         else => return self.createError("not a function: {s}", .{func.getType()}),
-    };
-
-    const extended_env = extendFunctionEnv(env, function, args);
-    const evaluated = self.evalBlockStatement(function.body, extended_env);
-
-    return unwrapReturnValue(evaluated);
+    }
 }
 
 fn extendFunctionEnv(env: *Environment, func: *Object.Function, args: std.ArrayList(*Object.Object)) *Environment {
@@ -1007,5 +1030,59 @@ test "TestStringConcatenation" {
         const expected = "Hello World!";
         const actual = result.?.string.value;
         try std.testing.expectEqualStrings(expected, actual);
+    }
+}
+
+test "TestBuiltinFunctions" {
+    const Types1 = union(enum) {
+        string: []const u8,
+        integer: i64,
+    };
+    const Test = struct {
+        []const u8,
+        Types1,
+    };
+    const tests = [_]Test{
+        .{ "len(\"\")", .{ .integer = 0 } },
+        .{ "len(\"four\")", .{ .integer = 4 } },
+        .{ "len(\"hello world\")", .{ .integer = 11 } },
+        .{ "len(1)", .{ .string = "argument to `len` not supported, got INTEGER" } },
+        .{ "len(\"one\", \"two\")", .{ .string = "wrong number of arguments. got=2, want=1" } },
+    };
+
+    Globals.init(std.testing.allocator);
+    defer Globals.deinit();
+
+    var env = Environment.init(std.testing.allocator);
+    defer env.deinit();
+
+    for (tests) |t| {
+        const lexer = Lexer.init(t[0]);
+        var parser = try Parser.init(std.testing.allocator, lexer);
+        defer parser.deinit();
+        const node_program = parser.parseProgram();
+        defer Globals.nodeProgramAppend(node_program);
+
+        checkParserErrors(parser);
+
+        var evaluator = Evaluator.init(std.testing.allocator);
+
+        const result = evaluator.eval(node_program, env);
+
+        {
+            switch (result.?.*) {
+                .integer => |x| {
+                    const expected = t[1].integer;
+                    const actual = x.value;
+                    try std.testing.expectEqual(expected, actual);
+                },
+                .@"error" => |x| {
+                    const expected = t[1].string;
+                    const actual = x.message;
+                    try std.testing.expectEqualStrings(expected, actual);
+                },
+                else => unreachable,
+            }
+        }
     }
 }

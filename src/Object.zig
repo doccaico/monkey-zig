@@ -1,5 +1,6 @@
 const std = @import("std");
 
+const Builtins = @import("Builtins.zig");
 const Environment = @import("Environment.zig");
 
 const Ast = struct {
@@ -8,6 +9,7 @@ const Ast = struct {
 };
 
 const ObjectType = []const u8;
+pub const BuiltinFunction = *const fn (args: std.ArrayList(*Object)) *Object;
 
 pub const INTEGER_OBJ: ObjectType = "INTEGER";
 pub const BOOLEAN_OBJ: ObjectType = "BOOLEAN";
@@ -16,6 +18,7 @@ pub const RETURN_VALUE_OBJ: ObjectType = "RETURN_VALUE";
 pub const ERROR_OBJ: ObjectType = "ERROR";
 pub const FUNCTION_OBJ: ObjectType = "FUNCTION";
 pub const STRING_OBJ: ObjectType = "STRING";
+pub const BUILTIN_OBJ: ObjectType = "BUILTIN";
 
 pub const Object = union(enum(u8)) {
     integer: *Integer,
@@ -25,6 +28,7 @@ pub const Object = union(enum(u8)) {
     @"error": *Error,
     function: *Function,
     string: *String,
+    builtin: *Builtin,
 
     pub fn inspect(self: Object, writer: anytype) !void {
         switch (self) {
@@ -133,5 +137,17 @@ pub const String = struct {
 
     pub fn getType(_: String) ObjectType {
         return STRING_OBJ;
+    }
+};
+
+pub const Builtin = struct {
+    function: BuiltinFunction,
+
+    pub fn inspect(_: Builtin, writer: anytype) !void {
+        _ = try writer.write("builtin function");
+    }
+
+    pub fn getType(_: Builtin) ObjectType {
+        return BUILTIN_OBJ;
     }
 };
