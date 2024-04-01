@@ -466,8 +466,6 @@ fn evalArrayIndexExpression(array: *Object.Object, index: *Object.Object) *Objec
 }
 
 fn evalHashLiteral(self: *Evaluator, node: *Ast.HashLiteral, env: *Environment) *Object.Object {
-    // var pairs = std.AutoHashMap(Object.HashKey, Object.HashPair).init(self.allocator);
-    // var pairs = std.HashMap(Object.HashKey, Object.HashPair, Context, 80).init(self.allocator);
     var pairs = std.HashMap(Object.HashKey, Object.HashPair, Object.Context, std.hash_map.default_max_load_percentage).init(self.allocator);
 
     var iterator = node.pairs.iterator();
@@ -484,10 +482,6 @@ fn evalHashLiteral(self: *Evaluator, node: *Ast.HashLiteral, env: *Environment) 
         }
 
         const hk = self.allocator.create(Object.Object) catch @panic("OOM");
-        // Globals.objectAppend(new_obj);
-        // return new_obj;
-
-        // const hk = self.createObject();
         switch (key.?.*) {
             .boolean => |x| hk.* = Object.Object{ .boolean = x },
             .integer => |x| hk.* = Object.Object{ .integer = x },
