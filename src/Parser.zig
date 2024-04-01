@@ -61,6 +61,7 @@ pub fn init(allocator: std.mem.Allocator, lexer: Lexer) !Parser {
     try parser.registerPrefix(.function, parseFunctionLiteral);
     try parser.registerPrefix(.string, parseStringLiteral);
     try parser.registerPrefix(.lbracket, parseArrayLiteral);
+    try parser.registerPrefix(.lbrace, parseHashLiteral);
 
     try parser.registerInfix(.plus, parseInfixExpression);
     try parser.registerInfix(.minus, parseInfixExpression);
@@ -515,6 +516,46 @@ fn parseIndexExpression(self: *Parser, left: *Ast.Expression) *Ast.Expression {
 
     const e = self.allocator.create(Ast.Expression) catch @panic("OOM");
     e.* = Ast.Expression{ .index_expression = ie };
+    return e;
+}
+
+fn parseHashLiteral(self: *Parser) *Ast.Expression {
+    const h = self.allocator.create(Ast.HashLiteral) catch @panic("OOM");
+    h.token = self.cur_token;
+    h.pairs = std.AutoHashMap(*Ast.Expression, *Ast.Expression).init(self.allocator);
+
+    while (!self.nextTokenIs(.rbrace)) {
+        self.nextToken();
+        const key = self.parseExpression(.lowest);
+
+        if (self.nextTokenIs(.colon)) {
+            self.nextToken();
+        } else {
+            return self.peekExpressionError(.colon);
+        }
+
+        self.nextToken();
+        const value = self.parseExpression(.lowest);
+
+        h.pairs.put(key, value) catch @panic("OOM");
+
+        if (!self.nextTokenIs(.rbrace)) {
+            if (!self.nextTokenIs(.comma)) {
+                return self.peekExpressionError(.comma);
+            } else {
+                self.nextToken();
+            }
+        }
+    }
+
+    if (self.nextTokenIs(.rbrace)) {
+        self.nextToken();
+    } else {
+        return self.peekExpressionError(.rbrace);
+    }
+
+    const e = self.allocator.create(Ast.Expression) catch @panic("OOM");
+    e.* = Ast.Expression{ .hash_literal = h };
     return e;
 }
 
@@ -1233,5 +1274,119 @@ test "TestParsingIndexExpressions" {
     {
         try std.testing.expectEqualStrings(index_exp.left.identifier.value, "myArray");
         try S.testInfixExpression(index_exp.index, 1, "+", 1);
+    }
+}
+
+test "TestParsingHashLiteralsStringKeys" {
+    const input =
+        \\{"one": 1, "two": 2, "three": 3}
+    ;
+
+    const lexer = Lexer.init(input);
+    var parser = try Parser.init(std.testing.allocator, lexer);
+    defer parser.deinit();
+    var node = parser.parseProgram();
+    defer node.deinit();
+
+    checkParserErrors(parser);
+
+    var buffer = std.ArrayList(u8).init(std.testing.allocator);
+    defer buffer.deinit();
+
+    const stmt = node.program.statements.items[0];
+    const hash = stmt.expression_statement.expression.hash_literal;
+
+    try std.testing.expectEqual(@as(usize, 3), hash.pairs.count());
+
+    const expected = std.ComptimeStringMap(i64, .{
+        .{ "one", 1 },
+        .{ "two", 2 },
+        .{ "three", 3 },
+    });
+
+    {
+        var iterator = hash.pairs.iterator();
+        while (iterator.next()) |entry| {
+            const literal = entry.key_ptr.*.string_literal;
+            // punk
+            try literal.string(buffer.writer());
+            const expected_value = expected.get(buffer.items).?;
+            const actual = entry.value_ptr.*.integer_literal.value;
+            try std.testing.expectEqual(expected_value, actual);
+            buffer.clearRetainingCapacity();
+        }
+    }
+}
+
+test "TestParsingEmptyHashLiteral" {
+    const input = "{}";
+
+    const lexer = Lexer.init(input);
+    var parser = try Parser.init(std.testing.allocator, lexer);
+    defer parser.deinit();
+    var node = parser.parseProgram();
+    defer node.deinit();
+
+    checkParserErrors(parser);
+
+    const stmt = node.program.statements.items[0];
+    const hash = stmt.expression_statement.expression.hash_literal;
+
+    try std.testing.expectEqual(@as(usize, 0), hash.pairs.count());
+}
+
+test "TestParsingHashLiteralsWithExpressions" {
+    const S = struct {
+        fn testInfixExpression(expr: *Ast.Expression, a: i64, b: []const u8, c: i64) !void {
+            const e = expr.infix_expression;
+            try std.testing.expectEqual(e.left.integer_literal.value, a);
+            try std.testing.expectEqualStrings(e.operator, b);
+            try std.testing.expectEqual(e.right.integer_literal.value, c);
+        }
+        fn f1(expr: *Ast.Expression) !void {
+            try testInfixExpression(expr, 0, "+", 1);
+        }
+        fn f2(expr: *Ast.Expression) !void {
+            try testInfixExpression(expr, 10, "-", 8);
+        }
+        fn f3(expr: *Ast.Expression) !void {
+            try testInfixExpression(expr, 15, "/", 5);
+        }
+    };
+    const input =
+        \\{"one": 0 + 1, "two": 10 - 8, "three": 15 / 5}
+    ;
+
+    const lexer = Lexer.init(input);
+    var parser = try Parser.init(std.testing.allocator, lexer);
+    defer parser.deinit();
+    var node = parser.parseProgram();
+    defer node.deinit();
+
+    checkParserErrors(parser);
+
+    var buffer = std.ArrayList(u8).init(std.testing.allocator);
+    defer buffer.deinit();
+
+    const stmt = node.program.statements.items[0];
+    const hash = stmt.expression_statement.expression.hash_literal;
+
+    try std.testing.expectEqual(@as(usize, 3), hash.pairs.count());
+
+    const tests = std.ComptimeStringMap(*const fn (expr: *Ast.Expression) anyerror!void, .{
+        .{ "one", S.f1 },
+        .{ "two", S.f2 },
+        .{ "three", S.f3 },
+    });
+
+    {
+        var iterator = hash.pairs.iterator();
+        while (iterator.next()) |entry| {
+            const literal = entry.key_ptr.*.string_literal;
+            try literal.string(buffer.writer());
+            const test_func = tests.get(buffer.items).?;
+            try test_func(entry.value_ptr.*);
+            buffer.clearRetainingCapacity();
+        }
     }
 }

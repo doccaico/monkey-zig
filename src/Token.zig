@@ -46,6 +46,7 @@ pub const TokenType = enum(u8) {
     @"return", // return
 
     string, // "foobar"
+    colon, // :
 };
 
 pub const keywords = std.ComptimeStringMap(TokenType, .{

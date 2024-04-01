@@ -57,6 +57,7 @@ pub fn nextToken(self: *Lexer) Token {
         '}' => token = Token{ .type = .rbrace, .literal = "}" },
         '[' => token = Token{ .type = .lbracket, .literal = "[" },
         ']' => token = Token{ .type = .rbracket, .literal = "]" },
+        ':' => token = Token{ .type = .colon, .literal = ":" },
         '"' => token = Token{ .type = .string, .literal = self.readString() },
         0 => token = Token{ .type = .eof, .literal = "" },
         else => {
@@ -384,6 +385,40 @@ test "nextToken() - array" {
         .{ .int, "2" },
         .{ .rbracket, "]" },
         .{ .semicolon, ";" },
+        .{ .eof, "" },
+    };
+
+    var lexer = Lexer.init(input);
+
+    for (tests) |t| {
+        const result = lexer.nextToken();
+        {
+            const expected = t[0];
+            const actual = result.type;
+            try std.testing.expectEqual(expected, actual);
+        }
+        {
+            const expected = t[1];
+            const actual = result.literal;
+            try std.testing.expectEqualStrings(expected, actual);
+        }
+    }
+}
+
+test "nextToken() - hash" {
+    const Test = struct {
+        Token.TokenType,
+        []const u8,
+    };
+    const input =
+        \\{"foo": "bar"}
+    ;
+    const tests = [_]Test{
+        .{ .lbrace, "{" },
+        .{ .string, "foo" },
+        .{ .colon, ":" },
+        .{ .string, "bar" },
+        .{ .rbrace, "}" },
         .{ .eof, "" },
     };
 

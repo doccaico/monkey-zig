@@ -160,6 +160,16 @@ pub const Node = union(enum) {
                 allocator.destroy(x);
                 allocator.destroy(expr);
             },
+            .hash_literal => |x| {
+                var iterator = x.pairs.iterator();
+                while (iterator.next()) |entry| {
+                    freeExpressionPointer(allocator, entry.key_ptr.*);
+                    freeExpressionPointer(allocator, entry.value_ptr.*);
+                }
+                x.pairs.deinit();
+                allocator.destroy(x);
+                allocator.destroy(expr);
+            },
             else => {},
         }
     }

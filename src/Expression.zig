@@ -17,6 +17,7 @@ pub const Expression = union(enum(u8)) {
     string_literal: *StringLiteral,
     array_literal: *ArrayLiteral,
     index_expression: *IndexExpression,
+    hash_literal: *HashLiteral,
 
     pub fn tokenLiteral(self: Expression) []const u8 {
         return switch (self) {
@@ -253,5 +254,33 @@ pub const IndexExpression = struct {
         try writer.writeAll("[");
         try self.index.string(writer);
         try writer.writeAll("])");
+    }
+};
+
+pub const HashLiteral = struct {
+    token: Token,
+    pairs: std.AutoHashMap(*Expression, *Expression),
+
+    pub fn tokenLiteral(self: HashLiteral) []const u8 {
+        return self.token.literal;
+    }
+
+    pub fn string(self: HashLiteral, writer: anytype) !void {
+        try writer.writeAll("{");
+
+        const size = self.pairs.count();
+        var i: usize = 0;
+        var iterator = self.pairs.iterator();
+        while (iterator.next()) |entry| {
+            try entry.key_ptr.*.string(writer);
+            try writer.writeAll(":");
+            try entry.value_ptr.*.string(writer);
+            if (i < size - 1) {
+                try writer.writeAll(", ");
+            }
+            i += 1;
+        }
+
+        try writer.writeAll("}");
     }
 };
