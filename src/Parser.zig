@@ -1308,7 +1308,6 @@ test "TestParsingHashLiteralsStringKeys" {
         var iterator = hash.pairs.iterator();
         while (iterator.next()) |entry| {
             const literal = entry.key_ptr.*.string_literal;
-            // punk
             try literal.string(buffer.writer());
             const expected_value = expected.get(buffer.items).?;
             const actual = entry.value_ptr.*.integer_literal.value;
