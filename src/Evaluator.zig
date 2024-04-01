@@ -185,6 +185,9 @@ pub fn eval(self: *Evaluator, node: *Ast.Node, env: *Environment) ?*Object.Objec
 
                     return self.evalIndexExpression(left.?, index.?);
                 },
+                .hash_literal => |y| {
+                    return self.evalHashLiteral(y, env);
+                },
                 else => {},
             }
         },
@@ -460,7 +463,59 @@ fn evalArrayIndexExpression(array: *Object.Object, index: *Object.Object) *Objec
     }
 
     return array_obj.elements.items[@intCast(idx)];
-    // return array_obj.elements.items[idx];
+}
+
+fn evalHashLiteral(self: *Evaluator, node: *Ast.HashLiteral, env: *Environment) *Object.Object {
+    // var pairs = std.AutoHashMap(Object.HashKey, Object.HashPair).init(self.allocator);
+    // var pairs = std.HashMap(Object.HashKey, Object.HashPair, Context, 80).init(self.allocator);
+    var pairs = std.HashMap(Object.HashKey, Object.HashPair, Object.Context, std.hash_map.default_max_load_percentage).init(self.allocator);
+
+    var iterator = node.pairs.iterator();
+    while (iterator.next()) |entry| {
+        const key_node = entry.key_ptr.*;
+        const value_node = entry.value_ptr.*;
+
+        const new_key_node = self.createNode();
+        new_key_node.* = Ast.Node{ .expression = key_node };
+        var key = self.eval(new_key_node, env);
+
+        if (isError(key)) {
+            return key.?;
+        }
+
+        const hk = self.allocator.create(Object.Object) catch @panic("OOM");
+        // Globals.objectAppend(new_obj);
+        // return new_obj;
+
+        // const hk = self.createObject();
+        switch (key.?.*) {
+            .boolean => |x| hk.* = Object.Object{ .boolean = x },
+            .integer => |x| hk.* = Object.Object{ .integer = x },
+            .string => |x| hk.* = Object.Object{ .string = x },
+            else => return self.createError("unusable as hash key: {s}", .{key.?.getType()}),
+        }
+
+        const new_value_node = self.createNode();
+        new_value_node.* = Ast.Node{ .expression = value_node };
+        const value = self.eval(new_value_node, env);
+
+        if (isError(value)) {
+            return value.?;
+        }
+
+        const hashed = Object.hashKey(hk);
+        pairs.put(hashed, .{
+            .key = key.?,
+            .value = value.?,
+        }) catch @panic("OOM");
+    }
+
+    const new_hash_obj = self.allocator.create(Object.Hash) catch @panic("OOM");
+    new_hash_obj.pairs = pairs;
+
+    const new_obj = self.createObject();
+    new_obj.* = Object.Object{ .hash = new_hash_obj };
+    return new_obj;
 }
 
 fn isTruthy(obj: *Object.Object) bool {

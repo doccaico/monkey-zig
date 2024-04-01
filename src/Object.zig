@@ -19,6 +19,7 @@ pub const FUNCTION_OBJ: ObjectType = "FUNCTION";
 pub const STRING_OBJ: ObjectType = "STRING";
 pub const BUILTIN_OBJ: ObjectType = "BUILTIN";
 pub const ARRAY_OBJ: ObjectType = "ARRAY";
+pub const HASH_OBJ: ObjectType = "HASH";
 
 pub const Object = union(enum(u8)) {
     integer: *Integer,
@@ -30,6 +31,7 @@ pub const Object = union(enum(u8)) {
     string: *String,
     builtin: *Builtin,
     array: *Array,
+    hash: *Hash,
 
     pub fn inspect(self: Object, writer: anytype) !void {
         switch (self) {
@@ -175,3 +177,95 @@ pub const Array = struct {
         return ARRAY_OBJ;
     }
 };
+
+pub const Context = struct {
+    pub fn hash(_: @This(), key: HashKey) u64 {
+        var hasher = std.hash.Wyhash.init(0);
+        std.hash.autoHashStrat(&hasher, key, .Shallow);
+        return hasher.final();
+    }
+    pub fn eql(_: @This(), a: HashKey, b: HashKey) bool {
+        return std.mem.eql(u8, a.type, b.type) and a.value == b.value;
+    }
+};
+
+pub const Hash = struct {
+    pairs: std.HashMap(HashKey, HashPair, Context, std.hash_map.default_max_load_percentage),
+
+    pub fn inspect(self: Hash, writer: anytype) anyerror!void {
+        try writer.writeAll("{");
+
+        const size = self.pairs.count();
+        var i: usize = 0;
+        var iterator = self.pairs.valueIterator();
+        while (iterator.next()) |pair| {
+            switch (pair.key.*) {
+                inline else => |x| try x.inspect(writer),
+            }
+
+            try writer.writeAll(": ");
+
+            switch (pair.value.*) {
+                inline else => |x| try x.inspect(writer),
+            }
+
+            if (i < size - 1) {
+                try writer.writeAll(", ");
+            }
+            i += 1;
+        }
+
+        try writer.writeAll("}");
+    }
+
+    pub fn getType(_: Hash) ObjectType {
+        return HASH_OBJ;
+    }
+};
+
+pub const HashKey = struct {
+    type: ObjectType,
+    value: u64,
+};
+
+pub const HashPair = struct {
+    key: *Object,
+    value: *Object,
+};
+
+pub fn hashKey(obj: *Object) HashKey {
+    switch (obj.*) {
+        .boolean => |x| return hashKeyBoolean(x),
+        .integer => |x| return hashKeyInteger(x),
+        .string => |x| return hashKeyString(x),
+        else => return hashKeyNull(),
+    }
+}
+
+fn hashKeyBoolean(obj: *Boolean) HashKey {
+    return HashKey{
+        .type = obj.getType(),
+        .value = @intFromBool(obj.value),
+    };
+}
+
+fn hashKeyInteger(obj: *Integer) HashKey {
+    return HashKey{
+        .type = obj.getType(),
+        .value = @intCast(obj.value),
+    };
+}
+
+fn hashKeyString(obj: *String) HashKey {
+    return HashKey{
+        .type = obj.getType(),
+        .value = std.hash.Fnv1a_64.hash(obj.value),
+    };
+}
+
+fn hashKeyNull() HashKey {
+    return HashKey{
+        .type = "",
+        .value = 0,
+    };
+}

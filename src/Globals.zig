@@ -43,6 +43,10 @@ pub fn deinit() void {
                 x.elements.deinit();
                 allocator.destroy(x);
             },
+            .hash => |x| {
+                x.pairs.deinit();
+                allocator.destroy(x);
+            },
         }
         allocator.destroy(item);
     }
