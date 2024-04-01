@@ -481,12 +481,11 @@ fn evalHashLiteral(self: *Evaluator, node: *Ast.HashLiteral, env: *Environment) 
             return key.?;
         }
 
-        const hk = self.allocator.create(Object.Object) catch @panic("OOM");
-        defer self.allocator.destroy(hk);
+        var hk: Object.Object = undefined;
         switch (key.?.*) {
-            .boolean => |x| hk.* = Object.Object{ .boolean = x },
-            .integer => |x| hk.* = Object.Object{ .integer = x },
-            .string => |x| hk.* = Object.Object{ .string = x },
+            .boolean => |x| hk = Object.Object{ .boolean = x },
+            .integer => |x| hk = Object.Object{ .integer = x },
+            .string => |x| hk = Object.Object{ .string = x },
             else => return self.createError("unusable as hash key: {s}", .{key.?.getType()}),
         }
 
@@ -1281,45 +1280,46 @@ test "TestHashLiterals" {
     const ta = std.testing.allocator;
     const HashType = std.HashMap(Object.HashKey, i64, Object.Context, std.hash_map.default_max_load_percentage);
     const S = struct {
-        var obj1: *Object.Object = undefined;
-        var obj2: *Object.Object = undefined;
-        var obj3: *Object.Object = undefined;
-        var obj4: *Object.Object = undefined;
-        var obj5: *Object.Object = undefined;
-        var obj6: *Object.Object = undefined;
+        var obj1: Object.Object = undefined;
+        var obj2: Object.Object = undefined;
+        var obj3: Object.Object = undefined;
+        var obj4: Object.Object = undefined;
+        var obj5: Object.Object = undefined;
+        var obj6: Object.Object = undefined;
         fn createHashMap() !HashType {
             obj1 = blk: {
                 const new_string_obj = try ta.create(Object.String);
                 new_string_obj.value = "one";
-                const new_obj = try ta.create(Object.Object);
-                new_obj.* = Object.Object{ .string = new_string_obj };
-                break :blk new_obj;
+                break :blk Object.Object{ .string = new_string_obj };
             };
             obj2 = blk: {
                 const new_string_obj = try ta.create(Object.String);
                 new_string_obj.value = "two";
-                const new_obj = try ta.create(Object.Object);
-                new_obj.* = Object.Object{ .string = new_string_obj };
-                break :blk new_obj;
+                break :blk Object.Object{ .string = new_string_obj };
             };
             obj3 = blk: {
                 const new_string_obj = try ta.create(Object.String);
                 new_string_obj.value = "three";
-                const new_obj = try ta.create(Object.Object);
-                new_obj.* = Object.Object{ .string = new_string_obj };
-                break :blk new_obj;
+                break :blk Object.Object{ .string = new_string_obj };
             };
             obj4 = blk: {
                 const new_integer_obj = try ta.create(Object.Integer);
                 new_integer_obj.value = 4;
-                const new_obj = try ta.create(Object.Object);
-                new_obj.* = Object.Object{ .integer = new_integer_obj };
-                break :blk new_obj;
+                break :blk Object.Object{ .integer = new_integer_obj };
             };
-            obj5 = Environment.TRUE;
-            obj6 = Environment.FALSE;
+            obj5 = blk: {
+                const new_boolean_obj = try ta.create(Object.Boolean);
+                new_boolean_obj.value = true;
+                break :blk Object.Object{ .boolean = new_boolean_obj };
+            };
+            obj6 = blk: {
+                const new_boolean_obj = try ta.create(Object.Boolean);
+                new_boolean_obj.value = false;
+                break :blk Object.Object{ .boolean = new_boolean_obj };
+            };
 
             var hash = std.HashMap(Object.HashKey, i64, Object.Context, std.hash_map.default_max_load_percentage).init(ta);
+            try hash.put(Object.hashKey(obj1), 1);
             try hash.put(Object.hashKey(obj1), 1);
             try hash.put(Object.hashKey(obj2), 2);
             try hash.put(Object.hashKey(obj3), 3);
@@ -1330,13 +1330,11 @@ test "TestHashLiterals" {
         }
         fn deinit(hash: *HashType) void {
             ta.destroy(obj1.string);
-            ta.destroy(obj1);
             ta.destroy(obj2.string);
-            ta.destroy(obj2);
             ta.destroy(obj3.string);
-            ta.destroy(obj3);
             ta.destroy(obj4.integer);
-            ta.destroy(obj4);
+            ta.destroy(obj5.boolean);
+            ta.destroy(obj6.boolean);
             hash.deinit();
         }
     };

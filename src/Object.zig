@@ -233,8 +233,8 @@ pub const HashPair = struct {
     value: *Object,
 };
 
-pub fn hashKey(obj: *Object) HashKey {
-    switch (obj.*) {
+pub fn hashKey(obj: Object) HashKey {
+    switch (obj) {
         .boolean => |x| return hashKeyBoolean(x),
         .integer => |x| return hashKeyInteger(x),
         .string => |x| return hashKeyString(x),
