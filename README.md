@@ -1,4 +1,4 @@
-# Monkey
+# Monkey (Tested on Windows only)
 
 A Zig/Ziglang version [monkey](https://monkeylang.org/) language interpreter. From [Write An Interpreter In Go](https://interpreterbook.com/).
 
@@ -9,7 +9,7 @@ A Zig/Ziglang version [monkey](https://monkeylang.org/) language interpreter. Fr
 0.12.0-dev.3496+a2df84d0f
 ```
 
-## Usage (on Windows)
+## Usage
 
 ```
 $ zig run src\main.zig
@@ -20,4 +20,4 @@ $ zig run src\main.zig
 * [x] Add buildin functions (len, first, last, rest, push, puts).
 * [x] Add string support.
 * [x] Add array support.
-* [-] Add hash support.
+* [x] Add hash support.

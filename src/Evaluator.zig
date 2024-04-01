@@ -448,6 +448,8 @@ fn evalIndexExpression(self: *Evaluator, left: *Object.Object, index: *Object.Ob
         std.mem.eql(u8, index.getType(), Object.INTEGER_OBJ))
     {
         return evalArrayIndexExpression(left, index);
+    } else if (std.mem.eql(u8, left.getType(), Object.HASH_OBJ)) {
+        return self.evalHashIndexExpression(left, index);
     } else {
         return self.createError("index operator not supported: {s}", .{left.getType()});
     }
@@ -510,6 +512,20 @@ fn evalHashLiteral(self: *Evaluator, node: *Ast.HashLiteral, env: *Environment) 
     const new_obj = self.createObject();
     new_obj.* = Object.Object{ .hash = new_hash_obj };
     return new_obj;
+}
+
+fn evalHashIndexExpression(self: *Evaluator, hash: *Object.Object, index: *Object.Object) *Object.Object {
+    const hash_obj = hash.hash;
+
+    var key: Object.Object = undefined;
+    switch (index.*) {
+        .boolean => |x| key = Object.Object{ .boolean = x },
+        .integer => |x| key = Object.Object{ .integer = x },
+        .string => |x| key = Object.Object{ .string = x },
+        else => return self.createError("unusable as hash key: {s}", .{index.getType()}),
+    }
+    const pair = hash_obj.pairs.get(Object.hashKey(key)) orelse return Environment.NULL;
+    return pair.value;
 }
 
 fn isTruthy(obj: *Object.Object) bool {
@@ -852,6 +868,10 @@ test "TestErrorHandling" {
         .{
             "\"Hello\" - \"World\"",
             "unknown operator: STRING - STRING",
+        },
+        .{
+            "{\"name\": \"Monkey\"}[fn(x) { x }];",
+            "unusable as hash key: FUNCTION",
         },
     };
 
@@ -1381,5 +1401,77 @@ test "TestHashLiterals" {
 
         const pair = result.pairs.get(expected_key).?;
         try std.testing.expectEqual(expected_value, pair.value.integer.value);
+    }
+}
+
+test "TestHashIndexExpressions" {
+    const null_value = -256;
+    const Test = struct {
+        []const u8,
+        i64,
+    };
+    const tests = [_]Test{
+        .{
+            "{\"foo\": 5}[\"foo\"]",
+            5,
+        },
+        .{
+            "{\"foo\": 5}[\"bar\"]",
+            null_value,
+        },
+        .{
+            "let key = \"foo\"; {\"foo\": 5}[key]",
+            5,
+        },
+        .{
+            "{}[\"foo\"]",
+            null_value,
+        },
+        .{
+            "{5: 5}[5]",
+            5,
+        },
+        .{
+            "{true: 5}[true]",
+            5,
+        },
+        .{
+            "{false: 5}[false]",
+            5,
+        },
+    };
+
+    Globals.init(std.testing.allocator);
+    defer Globals.deinit();
+
+    var env = Environment.init(std.testing.allocator);
+    defer env.deinit();
+
+    for (tests) |t| {
+        const lexer = Lexer.init(t[0]);
+        var parser = try Parser.init(std.testing.allocator, lexer);
+        defer parser.deinit();
+        const node_program = parser.parseProgram();
+        defer Globals.nodeProgramAppend(node_program);
+
+        checkParserErrors(parser);
+
+        var evaluator = Evaluator.init(std.testing.allocator);
+
+        const result = evaluator.eval(node_program, env);
+
+        {
+            const expected = t[1];
+            switch (result.?.*) {
+                .integer => |x| {
+                    const actual = x.value;
+                    try std.testing.expectEqual(expected, actual);
+                },
+                .null => {
+                    try std.testing.expectEqual(expected, null_value);
+                },
+                else => unreachable,
+            }
+        }
     }
 }
