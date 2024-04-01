@@ -25,20 +25,17 @@ const MONKEY_FACE =
     \\           '-----'
 ;
 
-pub fn start(stdin: anytype, stdout: anytype) !void {
-    var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
-    const gpa = general_purpose_allocator.allocator();
-
-    Globals.init(gpa);
+pub fn start(allocator: std.mem.Allocator, stdin: anytype, stdout: anytype) !void {
+    Globals.init(allocator);
     defer Globals.deinit();
 
-    var env = Environment.init(gpa);
+    var env = Environment.init(allocator);
     defer env.deinit();
 
     loop: while (true) {
         try stdout.writeAll(PROMPT);
 
-        var input = std.ArrayList(u8).init(gpa);
+        var input = std.ArrayList(u8).init(allocator);
 
         stdin.streamUntilDelimiter(input.writer(), DELIMITER, null) catch |err| switch (err) {
             error.EndOfStream => {
@@ -58,7 +55,7 @@ pub fn start(stdin: anytype, stdout: anytype) !void {
 
         const lexer = Lexer.init(line);
         defer Globals.lineAppend(line);
-        var parser = try Parser.init(gpa, lexer);
+        var parser = try Parser.init(allocator, lexer);
         defer parser.deinit();
         const node_program = parser.parseProgram();
         defer Globals.nodeProgramAppend(node_program);
@@ -69,7 +66,7 @@ pub fn start(stdin: anytype, stdout: anytype) !void {
             continue;
         }
 
-        var evaluator = Evaluator.init(gpa);
+        var evaluator = Evaluator.init(allocator);
 
         if (evaluator.eval(node_program, env)) |result| {
             try result.inspect(stdout);

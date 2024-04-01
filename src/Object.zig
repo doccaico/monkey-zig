@@ -1,6 +1,5 @@
 const std = @import("std");
 
-const Builtins = @import("Builtins.zig");
 const Environment = @import("Environment.zig");
 
 const Ast = struct {
@@ -71,7 +70,7 @@ pub const Boolean = struct {
 
 pub const Null = struct {
     pub fn inspect(_: Null, writer: anytype) !void {
-        _ = try writer.write("null");
+        try writer.writeAll("null");
     }
 
     pub fn getType(_: Null) ObjectType {
@@ -111,18 +110,18 @@ pub const Function = struct {
     env: *Environment,
 
     pub fn inspect(self: Function, writer: anytype) !void {
-        _ = try writer.write("fn");
-        _ = try writer.write("(");
+        try writer.writeAll("fn");
+        try writer.writeAll("(");
         const size = self.parameters.items.len;
         for (self.parameters.items, 0..) |param, i| {
             try param.string(writer);
             if (i < size - 1) {
-                _ = try writer.write(", ");
+                try writer.writeAll(", ");
             }
         }
-        _ = try writer.write(") {\n");
+        try writer.writeAll(") {\n");
         try self.body.string(writer);
-        _ = try writer.write("\n}");
+        try writer.writeAll("\n}");
     }
 
     pub fn getType(_: Function) ObjectType {
@@ -134,7 +133,7 @@ pub const String = struct {
     value: []const u8,
 
     pub fn inspect(self: String, writer: anytype) !void {
-        _ = try writer.write(self.value);
+        try writer.writeAll(self.value);
     }
 
     pub fn getType(_: String) ObjectType {
@@ -146,7 +145,7 @@ pub const Builtin = struct {
     function: BuiltinFunction,
 
     pub fn inspect(_: Builtin, writer: anytype) !void {
-        _ = try writer.write("builtin function");
+        try writer.writeAll("builtin function");
     }
 
     pub fn getType(_: Builtin) ObjectType {
@@ -158,7 +157,7 @@ pub const Array = struct {
     elements: std.ArrayList(*Object),
 
     pub fn inspect(self: Array, writer: anytype) anyerror!void {
-        _ = try writer.write("[");
+        try writer.writeAll("[");
 
         const size = self.elements.items.len;
         for (self.elements.items, 0..) |elem, i| {
@@ -166,10 +165,10 @@ pub const Array = struct {
                 inline else => |x| try x.inspect(writer),
             }
             if (i < size - 1) {
-                _ = try writer.write(", ");
+                try writer.writeAll(", ");
             }
         }
-        _ = try writer.write("]");
+        try writer.writeAll("]");
     }
 
     pub fn getType(_: Array) ObjectType {

@@ -12,6 +12,7 @@ const bfs = std.ComptimeStringMap(Object.BuiltinFunction, .{
     .{ "last", builtinFunctionLast },
     .{ "rest", builtinFunctionRest },
     .{ "push", builtinFunctionPush },
+    .{ "puts", builtinFunctionPuts },
 });
 
 var allocator: std.mem.Allocator = undefined;
@@ -30,6 +31,7 @@ pub fn init(builtin_allocator: std.mem.Allocator) std.StringHashMap(*Object.Obje
 
         result.put(kv.key, new_obj) catch @panic("OOM");
     }
+
     return result;
 }
 
@@ -89,6 +91,7 @@ fn builtinFunctionFirst(args: std.ArrayList(*Object.Object)) *Object.Object {
     if (arr.elements.items.len > 0) {
         return arr.elements.items[0];
     }
+
     return Environment.NULL;
 }
 
@@ -105,6 +108,7 @@ fn builtinFunctionLast(args: std.ArrayList(*Object.Object)) *Object.Object {
     if (length > 0) {
         return arr.elements.items[length - 1];
     }
+
     return Environment.NULL;
 }
 
@@ -159,4 +163,14 @@ fn builtinFunctionPush(args: std.ArrayList(*Object.Object)) *Object.Object {
     new_obj.* = Object.Object{ .array = new_array_obj };
 
     return new_obj;
+}
+
+fn builtinFunctionPuts(args: std.ArrayList(*Object.Object)) *Object.Object {
+    const stdout = std.io.getStdOut().writer();
+    for (args.items) |arg| {
+        arg.inspect(stdout) catch {};
+        stdout.writeByte('\n') catch {};
+    }
+
+    return Environment.NULL;
 }

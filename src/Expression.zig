@@ -42,7 +42,7 @@ pub const Identifier = struct {
     }
 
     pub fn string(self: Identifier, writer: anytype) !void {
-        _ = try writer.write(self.value);
+        try writer.writeAll(self.value);
     }
 };
 
@@ -55,7 +55,7 @@ pub const IntegerLiteral = struct {
     }
 
     pub fn string(self: IntegerLiteral, writer: anytype) !void {
-        _ = try writer.write(self.token.literal);
+        try writer.writeAll(self.token.literal);
     }
 };
 
@@ -69,10 +69,10 @@ pub const PrefixExpression = struct {
     }
 
     pub fn string(self: PrefixExpression, writer: anytype) !void {
-        _ = try writer.write("(");
-        _ = try writer.write(self.operator);
+        try writer.writeAll("(");
+        try writer.writeAll(self.operator);
         try self.right.string(writer);
-        _ = try writer.write(")");
+        try writer.writeAll(")");
     }
 };
 
@@ -87,11 +87,11 @@ pub const InfixExpression = struct {
     }
 
     pub fn string(self: InfixExpression, writer: anytype) !void {
-        _ = try writer.write("(");
+        try writer.writeAll("(");
         try self.left.string(writer);
         try writer.print(" {s} ", .{self.operator});
         try self.right.string(writer);
-        _ = try writer.write(")");
+        try writer.writeAll(")");
     }
 };
 
@@ -104,7 +104,7 @@ pub const BooleanExpression = struct {
     }
 
     pub fn string(self: BooleanExpression, writer: anytype) !void {
-        _ = try writer.write(self.token.literal);
+        try writer.writeAll(self.token.literal);
     }
 };
 
@@ -119,13 +119,13 @@ pub const IfExpression = struct {
     }
 
     pub fn string(self: IfExpression, writer: anytype) !void {
-        _ = try writer.write("if");
+        try writer.writeAll("if");
         try self.condition.string(writer);
-        _ = try writer.write(" ");
+        try writer.writeAll(" ");
         try self.consequence.string(writer);
 
         if (self.alternative) |alternative| {
-            _ = try writer.write("else ");
+            try writer.writeAll("else ");
             try alternative.string(writer);
         }
     }
@@ -154,18 +154,18 @@ pub const FunctionLiteral = struct {
     }
 
     pub fn string(self: FunctionLiteral, writer: anytype) !void {
-        _ = try writer.write("fn");
-        _ = try writer.write("(");
+        try writer.writeAll("fn");
+        try writer.writeAll("(");
         const size = self.parameters.items.len;
         for (self.parameters.items, 0..) |param, i| {
             try param.string(writer);
             if (i < size - 1) {
-                _ = try writer.write(", ");
+                try writer.writeAll(", ");
             }
         }
-        _ = try writer.write(") {\n");
+        try writer.writeAll(") {\n");
         try self.body.string(writer);
-        _ = try writer.write("\n}");
+        try writer.writeAll("\n}");
     }
 };
 
@@ -192,15 +192,15 @@ pub const CallExpression = struct {
 
     pub fn string(self: CallExpression, writer: anytype) !void {
         try self.function.string(writer);
-        _ = try writer.write("(");
+        try writer.writeAll("(");
         const size = self.arguments.items.len;
         for (self.arguments.items, 0..) |arg, i| {
             try arg.string(writer);
             if (i < size - 1) {
-                _ = try writer.write(", ");
+                try writer.writeAll(", ");
             }
         }
-        _ = try writer.write(")");
+        try writer.writeAll(")");
     }
 };
 
@@ -213,7 +213,7 @@ pub const StringLiteral = struct {
     }
 
     pub fn string(self: StringLiteral, writer: anytype) !void {
-        _ = try writer.write(self.token.literal);
+        try writer.writeAll(self.token.literal);
     }
 };
 
@@ -226,15 +226,15 @@ pub const ArrayLiteral = struct {
     }
 
     pub fn string(self: ArrayLiteral, writer: anytype) !void {
-        _ = try writer.write("[");
+        try writer.writeAll("[");
         const size = self.elements.items.len;
         for (self.elements.items, 0..) |arg, i| {
             try arg.string(writer);
             if (i < size - 1) {
-                _ = try writer.write(", ");
+                try writer.writeAll(", ");
             }
         }
-        _ = try writer.write("]");
+        try writer.writeAll("]");
     }
 };
 
@@ -248,10 +248,10 @@ pub const IndexExpression = struct {
     }
 
     pub fn string(self: IndexExpression, writer: anytype) !void {
-        _ = try writer.write("(");
+        try writer.writeAll("(");
         try self.left.string(writer);
-        _ = try writer.write("[");
+        try writer.writeAll("[");
         try self.index.string(writer);
-        _ = try writer.write("])");
+        try writer.writeAll("])");
     }
 };
