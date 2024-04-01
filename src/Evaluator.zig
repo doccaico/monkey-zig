@@ -482,6 +482,7 @@ fn evalHashLiteral(self: *Evaluator, node: *Ast.HashLiteral, env: *Environment) 
         }
 
         const hk = self.allocator.create(Object.Object) catch @panic("OOM");
+        defer self.allocator.destroy(hk);
         switch (key.?.*) {
             .boolean => |x| hk.* = Object.Object{ .boolean = x },
             .integer => |x| hk.* = Object.Object{ .integer = x },
@@ -1273,5 +1274,114 @@ test "TestArrayIndexExpressions" {
                 else => unreachable,
             }
         }
+    }
+}
+
+test "TestHashLiterals" {
+    const ta = std.testing.allocator;
+    const HashType = std.HashMap(Object.HashKey, i64, Object.Context, std.hash_map.default_max_load_percentage);
+    const S = struct {
+        var obj1: *Object.Object = undefined;
+        var obj2: *Object.Object = undefined;
+        var obj3: *Object.Object = undefined;
+        var obj4: *Object.Object = undefined;
+        var obj5: *Object.Object = undefined;
+        var obj6: *Object.Object = undefined;
+        fn createHashMap() !HashType {
+            obj1 = blk: {
+                const new_string_obj = try ta.create(Object.String);
+                new_string_obj.value = "one";
+                const new_obj = try ta.create(Object.Object);
+                new_obj.* = Object.Object{ .string = new_string_obj };
+                break :blk new_obj;
+            };
+            obj2 = blk: {
+                const new_string_obj = try ta.create(Object.String);
+                new_string_obj.value = "two";
+                const new_obj = try ta.create(Object.Object);
+                new_obj.* = Object.Object{ .string = new_string_obj };
+                break :blk new_obj;
+            };
+            obj3 = blk: {
+                const new_string_obj = try ta.create(Object.String);
+                new_string_obj.value = "three";
+                const new_obj = try ta.create(Object.Object);
+                new_obj.* = Object.Object{ .string = new_string_obj };
+                break :blk new_obj;
+            };
+            obj4 = blk: {
+                const new_integer_obj = try ta.create(Object.Integer);
+                new_integer_obj.value = 4;
+                const new_obj = try ta.create(Object.Object);
+                new_obj.* = Object.Object{ .integer = new_integer_obj };
+                break :blk new_obj;
+            };
+            obj5 = Environment.TRUE;
+            obj6 = Environment.FALSE;
+
+            var hash = std.HashMap(Object.HashKey, i64, Object.Context, std.hash_map.default_max_load_percentage).init(ta);
+            try hash.put(Object.hashKey(obj1), 1);
+            try hash.put(Object.hashKey(obj2), 2);
+            try hash.put(Object.hashKey(obj3), 3);
+            try hash.put(Object.hashKey(obj4), 4);
+            try hash.put(Object.hashKey(obj5), 5);
+            try hash.put(Object.hashKey(obj6), 6);
+            return hash;
+        }
+        fn deinit(hash: *HashType) void {
+            ta.destroy(obj1.string);
+            ta.destroy(obj1);
+            ta.destroy(obj2.string);
+            ta.destroy(obj2);
+            ta.destroy(obj3.string);
+            ta.destroy(obj3);
+            ta.destroy(obj4.integer);
+            ta.destroy(obj4);
+            hash.deinit();
+        }
+    };
+    const input =
+        \\     let two = "two";
+        \\ {
+        \\     "one": 10 - 9,
+        \\     two: 1 + 1,
+        \\     "thr" + "ee": 6 / 2,
+        \\     4: 4,
+        \\     true: 5,
+        \\     false: 6
+        \\ }
+    ;
+
+    Globals.init(std.testing.allocator);
+    defer Globals.deinit();
+
+    var env = Environment.init(std.testing.allocator);
+    defer env.deinit();
+
+    const lexer = Lexer.init(input);
+    var parser = try Parser.init(std.testing.allocator, lexer);
+    defer parser.deinit();
+    const node_program = parser.parseProgram();
+    defer Globals.nodeProgramAppend(node_program);
+
+    checkParserErrors(parser);
+
+    var evaluator = Evaluator.init(std.testing.allocator);
+
+    const evaluated = evaluator.eval(node_program, env);
+    const result = evaluated.?.hash;
+
+    var expected = try S.createHashMap();
+    defer S.deinit(&expected);
+
+    try std.testing.expectEqual(expected.count(), result.pairs.count());
+
+    var iterator = expected.iterator();
+    while (iterator.next()) |entry| {
+        const expected_key = entry.key_ptr.*;
+        const expected_value = entry.value_ptr.*;
+
+        const pair = result.pairs.get(expected_key).?;
+        try std.testing.expectEqual(expected_value, pair.value.integer.value);
     }
 }
