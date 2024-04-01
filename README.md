@@ -2,18 +2,22 @@
 
 A Zig/Ziglang version [monkey](https://monkeylang.org/) language interpreter. From [Write An Interpreter In Go](https://interpreterbook.com/).
 
-## Test
+## Zig version
+
 ```
-# do all tests (on Windows)
-
-$ zig test src\main.zig
-
-# 単体テスト
-
-$ zig test src\Evaluator.zig --test-filter TestClosures
+// 2024/04/01
+0.12.0-dev.3496+a2df84d0f
 ```
 
-## Memo
+## Usage (on Windows)
+
 ```
-* 03/30 3.10 - Functions & Function Calls
+$ zig run src\main.zig
 ```
+
+## TODOs
+
+* [x] Add buildin functions (len, first, last, rest, push, puts).
+* [x] Add string support.
+* [x] Add array support.
+* [-] Add hash support.
