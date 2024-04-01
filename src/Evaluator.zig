@@ -1,6 +1,5 @@
 const std = @import("std");
 
-const Builtins = @import("Builtins.zig");
 const Environment = @import("Environment.zig");
 const Globals = @import("Globals.zig");
 const Lexer = @import("Lexer.zig");
@@ -187,11 +186,9 @@ pub fn eval(self: *Evaluator, node: *Ast.Node, env: *Environment) ?*Object.Objec
                     return self.evalIndexExpression(left.?, index.?);
                 },
                 else => {},
-                // else => unreachable,
             }
         },
     }
-    // std.debug.print("{s}\n", .{"reached 'null'"});
     return null;
 }
 
